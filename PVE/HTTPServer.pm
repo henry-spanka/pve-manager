@@ -1215,6 +1215,55 @@ sub unshift_read_header {
 		    }
 		    $self->handle_spice_proxy_request($reqstate, $connect_str, $vmid, $node, $port);
 		    return;
+		} elsif ($self->{novncproxy}) {
+			my $connect_str = $r->header('Host');
+			my $vmid = extract_params($r, $method)->{vmid};
+			my $authpath = "/vms/$vmid";
+			my $user = extract_params($r, $method)->{user};
+			my $vncticket = extract_params($r, $method)->{vncticket};
+			my $upgrade = $r->header('upgrade');
+			my $wsver = $r->header('sec-websocket-version');
+			my $wsproto_str = $r->header('sec-websocket-protocol');
+
+			$upgrade = lc($upgrade) if $upgrade;	
+			
+			if( !$upgrade || $upgrade ne 'websocket') {
+				$self->error($reqstate, HTTP_UNAUTHORIZED, "unable to upgrade to protocol $upgrade");
+				return;
+			}
+			if (!$wsver || $wsver ne '13') {
+				$self->error($reqstate, HTTP_UNAUTHORIZED, "unsupported websocket-version $wsver");
+				return;
+			}
+			if( !$wsproto_str ) {
+				$self->error($reqstate, HTTP_UNAUTHORIZED, "missing websocket-protocol header");
+				return;
+			} 			
+			my $wsproto;		
+			foreach my $p (PVE::Tools::split_list($wsproto_str)) {
+				$wsproto = $p if !$wsproto && $p eq 'base64';
+				$wsproto = $p if $p eq 'binary';
+			}
+			if ( !$wsproto ) {
+				$self->error($reqstate, HTTP_UNAUTHORIZED, "unsupported websocket-protocol protocol $wsproto_str");
+				return;
+			}
+			my $wskey = $r->header('sec-websocket-key');
+			if( !$wskey) {
+				$self->error($reqstate, HTTP_UNAUTHORIZED, "missing websocket-key");
+				return;
+			}
+			# Note: Digest::SHA::sha1_base64 has wrong padding
+			my $wsaccept = Digest::SHA::sha1_base64("${wskey}258EAFA5-E914-47DA-95CA-C5AB0DC85B11") . "=";
+		
+			if(!PVE::AccessControl::verify_vnc_ticket($vncticket, $user, $authpath, 1 )) {
+				$self->error($reqstate, HTTP_UNAUTHORIZED, "invalid ticket");
+				print "invalid ticket" if $self->{debug};
+				return;
+			}
+			$reqstate->{hdl}->timeout(0);
+			$self->websocket_proxy($reqstate, $wsaccept, $wsproto, extract_params($r, $method));			
+			return;
 		} elsif ($path =~ m!$baseuri!) {
 		    my $token = $r->header('CSRFPreventionToken');
 		    my $cookie = $r->header('Cookie');
@@ -1626,6 +1675,10 @@ sub new {
 
     if ($self->{spiceproxy}) {
 	$known_methods = { CONNECT => 1 };
+    }
+	
+	if ($self->{novncproxy}) {
+	$known_methods = { GET => 1 };
     }
 
     $self->open_access_log($self->{logfile}) if $self->{logfile};

@@ -360,6 +360,13 @@ my $confdesc = {
 	maximum => 500000,
 	default => 1000,
     },
+    cpulimit => {
+	optional => 1,
+	type => 'integer',
+	description => "Absolute cpu maximum limit for a container (percent)",
+	minimum => 1,
+	default => 100,
+    },
     memory => {
 	optional => 1,
 	type => 'integer',
@@ -425,6 +432,21 @@ my $confdesc = {
 	optional => 1,
 	type => 'string', format => 'pve-openvz-netif',
 	description => "Specifies network interfaces for the container.",
+    },
+    devices => {
+	optional => 1,
+	type => 'string',
+	description => "Specifies devices for the container",
+    },
+    devnodes => {
+	optional => 1,
+	type => 'string',
+	description => "Specifies devnodes for the container.",
+    },
+    capability => {
+	optional => 1,
+	type => 'string',
+    description => "Specifies capabilitys for the container.",
     },
 };
 
@@ -1033,6 +1055,11 @@ sub update_ovz_config {
 	$veconf->{'cpus'}->{value} = $cpus;
 	push @$changes, '--cpus', "$cpus";
     }
+	
+	if ($veconf->{'cpulimit'}->{value} != $param->{cpulimit} && defined($param->{cpulimit})) {
+		$veconf->{'cpulimit'}->{value} = $param->{cpulimit};
+		push @$changes, '--cpulimit', "$param->{cpulimit}";
+    }
 
     my $cond_set_boolean = sub {
 	my ($name) = @_;
@@ -1092,6 +1119,19 @@ sub update_ovz_config {
 	    }
 	}
 	$veconf->{'ip_address'}->{value} = join(' ', keys %$iphash);
+    }
+	
+    if (defined($param->{devices})) {
+		$veconf->{'devices'}->{value} = $param->{devices};
+		push @$changes, '--devices', "$param->{devices}";
+    }
+    if (defined($param->{devnodes})) {
+        $veconf->{'devnodes'}->{value} = $param->{devnodes};
+        push @$changes, '--devnodes', "$param->{devnodes}";
+    }
+    if (defined($param->{capability})) {
+        $veconf->{'capability'}->{value} = $param->{capability};
+        push @$changes, '--capability', "$param->{capability}";
     }
 
     if (defined($param->{netif})) {

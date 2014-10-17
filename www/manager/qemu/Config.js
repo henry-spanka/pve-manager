@@ -189,6 +189,14 @@ Ext.define('PVE.qemu.Config', {
 		}
 	    ]);
 	}
+	
+	if(caps.vms['VM.Config.UploadISO']) {
+		me.items.push({
+			title: gettext('ISOs'),
+			xtype: 'pveQemuISOTree',
+			itemId: 'isos'
+		});
+	}
 
 	if (caps.vms['Permissions.Modify']) {
 	    me.items.push({

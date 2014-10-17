@@ -83,6 +83,19 @@ Ext.define('PVE.openvz.Config', {
 		win.show();
 	    }
 	});
+	
+	var reinstallBtn = Ext.create('Ext.Button', {
+		text: gettext('Reinstall'),
+		disabled: !caps.vms['VM.Allocate'],
+		handler: function() {
+			var win = Ext.create('PVE.window.Reinstall', { 
+				vmtype: 'openvz',
+				nodename: nodename,
+				vmid: vmid
+			});
+			win.show();
+		}
+	});
 
 	var removeBtn = Ext.create('PVE.button.Button', {
 	    text: gettext('Remove'),
@@ -117,7 +130,7 @@ Ext.define('PVE.openvz.Config', {
 	    title: Ext.String.format(gettext("Container {0} on node {1}"), descr, "'" + nodename + "'"),
 	    hstateid: 'ovztab',
 	    tbar: [ startBtn, shutdownBtn, umountBtn, stopBtn, removeBtn, 
-		    migrateBtn, consoleBtn ],
+		    migrateBtn, reinstallBtn, consoleBtn ],
 	    defaults: { statusStore: me.statusStore },
 	    items: [
 		{
@@ -205,6 +218,7 @@ Ext.define('PVE.openvz.Config', {
 	    shutdownBtn.setDisabled(!caps.vms['VM.PowerMgmt'] || status !== 'running');
 	    stopBtn.setDisabled(!caps.vms['VM.PowerMgmt'] || status === 'stopped');
 	    removeBtn.setDisabled(!caps.vms['VM.Allocate'] || status !== 'stopped');
+		reinstallBtn.setDisabled(!caps.vms['VM.Allocate'] || status !== 'stopped');
 
 	    if (status === 'mounted') {
 		umountBtn.setDisabled(false);

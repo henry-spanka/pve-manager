@@ -98,7 +98,7 @@ sub auth_handler {
 
 	$rpcenv->set_user($username);
 
-	if ($method eq 'POST' && $rel_uri =~ m|^/nodes/([^/]+)/storage/([^/]+)/upload$|) {
+	if ($method eq 'POST' && $rel_uri =~ m|^/nodes/([^/]+)/storage/([^/]+)/upload$| || $rel_uri =~ m|^/nodes/([^/]+)/qemu/([^/]+)/iso$|) {
 	    my ($node, $storeid) = ($1, $2);
 	    # we disable CSRF checks if $isUpload is set,
 	    # to improve security we check user upload permission here

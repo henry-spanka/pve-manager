@@ -226,6 +226,44 @@ my $restore_openvz = sub {
     return $conf;
 };
 
+my $reinstall_openvz = sub {
+    my ($private, $archive, $vmid) = @_;
+
+    my $vzconf = PVE::OpenVZ::read_global_vz_config();
+    my $conffile = PVE::OpenVZ::config_file($vmid);
+    my $cfgdir = dirname($conffile);
+
+    my $root = $vzconf->{rootdir};
+    $root =~ s/\$VEID/$vmid/;
+
+    print "overwriting private and root directories.\n";
+
+    my $conf;
+
+    eval {
+		my $conf = PVE::OpenVZ::load_config($vmid);
+		rmtree $private if -d $private;
+	
+		my $cmd = ['vzctl', '--skiplock', 'create', $vmid,
+		   '--ostemplate', $archive, '--private', $private];
+		run_command($cmd);
+    };
+
+    my $err = $@;
+
+    if ($err) {
+		rmtree $private;
+		rmtree $root;
+		unlink $conffile;
+		foreach my $s (PVE::OpenVZ::SCRIPT_EXT) {
+			unlink "$cfgdir/${vmid}.$s";
+		}
+		die $err;
+    }
+
+    return $conf;
+};
+
 # create_vm is also used by vzrestore
 __PACKAGE__->register_method({
     name => 'create_vm', 
@@ -458,6 +496,21 @@ __PACKAGE__->register_method({
 		    description => 'Prevent changes if current configuration file has different SHA1 digest. This can be used to prevent concurrent modifications.',
 		    maxLength => 40,
 		    optional => 1,		    
+		},
+	    password => {
+		    type => 'string',
+		    description => 'Sets root password inside container.',
+		    optional => 1,
+	    },
+	    tuntap => {
+		    type => 'string',
+		    description => 'Enables or disables the TUN/TAP Device inside container.',
+		    optional => 1,
+	    },
+	    fuse => {
+		    type => 'string',
+		    description => 'Enables or disables the FUSE Device inside container.',
+		    optional => 1,
 		}
 	    }),
     },
@@ -484,6 +537,43 @@ __PACKAGE__->register_method({
 	    my $conf = PVE::OpenVZ::load_config($vmid);
 	    die "checksum missmatch (file change by other user?)\n" 
 		if $digest && $digest ne $conf->{digest};
+			
+		if($param->{password}) {
+			my $cmd = ['vzctl', '--skiplock', 'set', $vmid, '--userpasswd', "root:$param->{password}"];
+			run_command($cmd);
+		}
+		if($param->{tuntap}) {
+			my $conf = PVE::OpenVZ::load_config($vmid);
+			my $privatedir = PVE::OpenVZ::get_privatedir($conf, $vmid);
+
+			if($param->{tuntap} eq "enable") {
+				$param->{devices} = 'c:10:200:rw';
+				$param->{capability} = 'net_admin:on';
+				my $cmd_tuntap = ["mkdir -p $privatedir/dev/net"];
+				run_command($cmd_tuntap);
+				my $cmd_tuntap1 = ["mknod $privatedir/dev/net/tun c 10 200 >/dev/null 2>&1 || true"];
+				run_command($cmd_tuntap1);
+				my $cmd_tuntap2 = ["chmod 600 $privatedir/dev/net/tun"];
+				run_command($cmd_tuntap2);
+			} else {
+				$param->{devices} = 'c:10:200:none';
+				$param->{capability} = 'net_admin:off';
+				my $cmd_tuntap = ["rm -rf $privatedir/dev/net/tun"];
+				run_command($cmd_tuntap);
+			}
+		}
+        if($param->{fuse}) {
+            my $conf = PVE::OpenVZ::load_config($vmid);
+            my $privatedir = PVE::OpenVZ::get_privatedir($conf, $vmid);
+
+            if($param->{fuse} eq "enable") {
+				$param->{devnodes} = 'fuse:rw';
+            } else {
+				$param->{devnodes} = 'fuse:none';
+				my $cmd_fuse = ["rm -rf $privatedir/dev/fuse"];
+				run_command($cmd_fuse);
+            }
+        }
 
 	    my $changes = PVE::OpenVZ::update_ovz_config($vmid, $conf, $param);
 
@@ -548,6 +638,7 @@ __PACKAGE__->register_method({
 	    { subdir => 'rrd' },
 	    { subdir => 'rrddata' },
 	    { subdir => 'firewall' },
+		{ subdir => 'reinstall' },
 	    ];
 	
 	return $res;
@@ -815,6 +906,108 @@ __PACKAGE__->register_method({
 	};
 
 	return $rpcenv->fork_worker('vzdestroy', $vmid, $authuser, $realcmd);
+    }});
+	
+__PACKAGE__->register_method({
+    name => 'reinstall_vm', 
+    path => '{vmid}/reinstall', 
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Reinstalls the container (also delete all uses files).",
+    permissions => {
+	check => [ 'perm', '/vms/{vmid}', ['VM.Allocate']],
+    },
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+	    node => get_standard_option('pve-node'),
+	    vmid => get_standard_option('pve-vmid'),
+	    ostemplate => {
+			description => "The OS template",
+			type => 'string', 
+			maxLength => 255,
+	    },
+		password => {
+			type => 'string',
+			description => 'Sets root password inside container.',
+			minLength => 5,
+		},
+	},
+    },
+    returns => { 
+	type => 'string',
+    },
+    code => sub {
+	my ($param) = @_;
+
+	my $rpcenv = PVE::RPCEnvironment::get();
+
+	my $authuser = $rpcenv->get_user();
+
+	my $node = extract_param($param, 'node');
+	
+	my $vmid = extract_param($param, 'vmid');
+	
+	my $ostemplate = extract_param($param, 'ostemplate');
+	
+	my $password = extract_param($param, 'password');
+	
+	my $storage_cfg = cfs_read_file("storage.cfg");
+
+	# test if VM exists
+	my $conf = PVE::OpenVZ::load_config($vmid);
+	my $privatedir = PVE::OpenVZ::get_privatedir($conf, $vmid);
+	
+	my $archive;
+	
+	if ($ostemplate eq '-') {
+	    die "pipe can only be used with restore tasks\n" 
+	} else {
+	    $rpcenv->check_volume_access($authuser, $storage_cfg, $vmid, $ostemplate);
+	    $archive = PVE::Storage::abs_filesystem_path($storage_cfg, $ostemplate);
+	}
+	
+	die "CT $vmid running! Please stop it first\n" if PVE::OpenVZ::check_running($vmid);
+	
+	my $check_vmid_usage = sub {
+		die "cant overwrite mounted container\n" 
+		    if PVE::OpenVZ::check_mounted($conf, $vmid);
+	};
+
+	my $code = sub {
+		&$check_vmid_usage(); # final check after locking
+		
+		PVE::OpenVZ::update_ovz_config($vmid, $conf, $param);
+		
+		PVE::Cluster::check_cfs_quorum();
+		
+		&$reinstall_openvz($privatedir, $archive, $vmid);
+		
+		# is this really needed?
+		my $cmd = ['vzctl', '--skiplock', '--quiet', 'set', $vmid, 
+			   '--applyconfig_map', 'name', '--save'];
+		run_command($cmd);
+		
+		$conf = PVE::OpenVZ::load_config($vmid);
+		
+		# and initialize quota
+		my $disk_quota = $conf->{disk_quota}->{value};
+		if (!defined($disk_quota) || ($disk_quota != 0)) {
+		    $cmd = ['vzctl', '--skiplock', 'quotainit', $vmid];
+		    run_command($cmd);
+		}
+		# and setting root password
+		PVE::OpenVZ::set_rootpasswd($privatedir, $password) 
+		    if defined($password);
+
+	};
+	
+	my $realcmd = sub { PVE::OpenVZ::lock_container($vmid, 1, $code); };
+	
+	&$check_vmid_usage(); # first check before locking
+
+	return $rpcenv->fork_worker('vzreinstall', $vmid, $authuser, $realcmd);
     }});
 
 my $sslcert;

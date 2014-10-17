@@ -7,6 +7,7 @@ SCRIPTS = 		\
 	pvedaemon 	\
 	pveproxy 	\
 	spiceproxy 	\
+	novncproxy	\
 	pvebanner	\
 	pvestatd	\
 	pvenetcommit

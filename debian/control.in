@@ -7,6 +7,6 @@ Depends: perl (>= 5.10.0-19), libtimedate-perl, libauthen-pam-perl, libintl-perl
 Conflicts: netcat-openbsd, vzdump
 Replaces: vzdump
 Provides: vzdump
-Maintainer: Proxmox Support Team <support@proxmox.com>
+Maintainer: Henry Spanka - myVirtualserver <henry@myvirtualserver.de>
 Description: The Proxmox Virtual Environment
  This package contains the Proxmox Virtual Environment management tools.

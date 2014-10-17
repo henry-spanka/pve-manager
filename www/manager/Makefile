@@ -42,6 +42,7 @@ JSSRC= 				                 	\
 	form/ViewSelector.js				\
 	form/NodeSelector.js				\
 	form/FileSelector.js				\
+	form/ISOSelector.js					\
 	form/StorageSelector.js				\
 	form/BridgeSelector.js				\
 	form/SecurityGroupSelector.js			\
@@ -110,6 +111,7 @@ JSSRC= 				                 	\
 	node/Config.js					\
 	qemu/StatusView.js				\
 	window/Migrate.js				\
+	window/Reinstall.js				\
 	qemu/Monitor.js					\
 	qemu/Summary.js					\
 	qemu/OSTypeEdit.js				\
@@ -132,6 +134,7 @@ JSSRC= 				                 	\
 	qemu/Snapshot.js				\
 	qemu/Clone.js					\
 	qemu/SnapshotTree.js				\
+	qemu/ISOTree.js					\
 	qemu/Config.js					\
 	qemu/CreateWizard.js				\
 	openvz/StatusView.js				\

@@ -215,6 +215,23 @@ Ext.define('PVE.qemu.Options', {
 		    }
 		} : undefined
 	    },
+		cpulimit: {
+			header: gettext('CPU limit'),
+			defaultValue: '0',
+			editor: caps.vms['VM.Config.CPU'] ? {
+				xtype: 'pveWindowEdit',
+				subject: gettext('CPU limit'),
+				items: {
+					xtype: 'numberfield',
+					name: 'cpulimit',
+					fieldLabel: gettext('CPU limit'),
+					minValue: 0,
+					maxValue: 16000,
+					defaultValue: 0,
+					allowBlank: false
+				}
+			} : undefined
+		},
 	    localtime: {
 		header: gettext('Use local time for RTC'),
 		defaultValue: false,
