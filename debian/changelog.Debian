@@ -1,3 +1,19 @@
+pve-manager (3.3-4) unstable; urgency=low
+
+  * pveproxy: limit ourselfes to tlsv1
+
+  * GUI: add kvm cpulimit option
+
+  * GUI: add openvz cpulimit option
+
+  * openvz: reinstall container without destroy and recreating
+
+  * openvz: tun/tap and fuse support via API
+
+  * novncproxy is now a system service that is listening on port 3129
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Fri, 17 Oct 2014 20:04:22 +0200
+
 pve-manager (3.3-3) unstable; urgency=low
 
   * openvz: implement suspend/resume
