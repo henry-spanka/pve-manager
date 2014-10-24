@@ -1,3 +1,9 @@
+pve-manager (3.3-5) unstable; urgency=low
+
+  * VZDump: send an error email in case of lock failure
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Fri, 24 Oct 2014 19:54:31 +0200
+
 pve-manager (3.3-4) unstable; urgency=low
 
   * pveproxy: limit ourselfes to tlsv1
