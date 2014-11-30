@@ -1,3 +1,9 @@
+pve-manager (3.3-8) unstable; urgency=low
+
+  * depend on pve-database
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sun, 30 Nov 2014 22:20:18 +0100
+
 pve-manager (3.3-7) unstable; urgency=low
 
   * vzdump: avoid warning about uninitialized value
