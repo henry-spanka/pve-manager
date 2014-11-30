@@ -19,6 +19,7 @@ use PVE::OpenVZ;
 use PVE::OpenVZMigrate;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::API2::Firewall::VM;
+use PVE::API2::Database::VM;
 
 use base qw(PVE::RESTHandler);
 
@@ -596,6 +597,11 @@ __PACKAGE__->register_method ({
     path => '{vmid}/firewall',
 });
 
+__PACKAGE__->register_method ({
+    subclass => "PVE::API2::Database::CT",  
+    path => '{vmid}/database',
+});
+
 __PACKAGE__->register_method({
     name => 'vmdiridx',
     path => '{vmid}', 
@@ -639,6 +645,7 @@ __PACKAGE__->register_method({
 	    { subdir => 'rrddata' },
 	    { subdir => 'firewall' },
 		{ subdir => 'reinstall' },
+		{ subdir => 'database' },
 	    ];
 	
 	return $res;
@@ -1362,6 +1369,9 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 
 	die "CT $vmid already running\n" if PVE::OpenVZ::check_running($vmid);
+	
+	my $dbconf = PVE::Database::load_vmdb_conf($vmid);
+	die "CT $vmid is locked due to exceeding the network bandwidth\n" if($dbconf->{network}->{netlock} ge 1);
 
 	if (&$vm_is_ha_managed($vmid) && $rpcenv->{type} ne 'ha') {
 
