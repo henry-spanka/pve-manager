@@ -1,3 +1,9 @@
+pve-manager (3.3-12) unstable; urgency=low
+
+  * refs #29 - fixed network usage function
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sun, 28 Dec 2014 17:10:21 +0100
+
 pve-manager (3.3-11) unstable; urgency=low
 
   * refs #29 - forgot to allow venet for traffic accounting
