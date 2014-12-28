@@ -1,3 +1,9 @@
+pve-manager (3.3-10) unstable; urgency=low
+
+  * fixed (#29) - Netin/Netout has included private interfaces (e.g. TUN)
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sun, 28 Dec 2014 15:19:28 +0100
+
 pve-manager (3.3-9) unstable; urgency=low
 
   * removed container start lock (netlock)
