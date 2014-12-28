@@ -1,3 +1,25 @@
+pve-manager (3.3-9) unstable; urgency=low
+
+  * removed container start lock (netlock)
+
+  * depend on pve-database
+
+  * spiceproxy: use PVE::Daemon
+
+  * APIDaemon: fix signal handling
+
+  * depend on libev-perl
+
+  * fix arguments for register_restart ccommand
+
+  * spiceproxy: do noot use perl flag -w
+
+  * pvestatd: use new Daemon class from pve-common
+
+  * pveproxy: support TLS1.1 and TLS1.2
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sun, 28 Dec 2014 14:55:57 +0100
+
 pve-manager (3.3-8) unstable; urgency=low
 
   * depend on pve-database
