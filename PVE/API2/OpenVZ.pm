@@ -1369,9 +1369,6 @@ __PACKAGE__->register_method({
 	my $vmid = extract_param($param, 'vmid');
 
 	die "CT $vmid already running\n" if PVE::OpenVZ::check_running($vmid);
-	
-	my $dbconf = PVE::Database::load_vmdb_conf($vmid);
-	die "CT $vmid is locked due to exceeding the network bandwidth\n" if($dbconf->{network}->{netlock} ge 1);
 
 	if (&$vm_is_ha_managed($vmid) && $rpcenv->{type} ne 'ha') {
 
