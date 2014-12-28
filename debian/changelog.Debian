@@ -1,3 +1,9 @@
+pve-manager (3.3-11) unstable; urgency=low
+
+  * refs #29 - forgot to allow venet for traffic accounting
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sun, 28 Dec 2014 16:16:17 +0100
+
 pve-manager (3.3-10) unstable; urgency=low
 
   * fixed (#29) - Netin/Netout has included private interfaces (e.g. TUN)
