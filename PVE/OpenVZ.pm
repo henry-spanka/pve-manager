@@ -159,10 +159,13 @@ sub read_container_network_usage {
     my $netparser = sub {
 	my $line = shift;
 	if ($line =~ m/^\s*(.*):\s*(\d+)\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+(\d+)\s+/) {
+	    my $interface = $1;
+	    my $received = $2;
+	    my $transmitted = $3;
 	    return if $1 eq 'lo';
 	    return if $1 !~ m/^eth[\d]+|veth[\d]+|venet[\d]+$/i;
-	    $recv += $2;
-	    $trmt += $3;
+	    $recv += $received;
+	    $trmt += $transmitted;
 	}
     };
 
