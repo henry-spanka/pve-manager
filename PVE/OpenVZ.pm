@@ -160,6 +160,7 @@ sub read_container_network_usage {
 	my $line = shift;
 	if ($line =~ m/^\s*(.*):\s*(\d+)\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+(\d+)\s+/) {
 	    return if $1 eq 'lo';
+	    return if $1 !~ m/^eth[\d]+|veth[\d]+$/i;
 	    $recv += $2;
 	    $trmt += $3;
 	}
