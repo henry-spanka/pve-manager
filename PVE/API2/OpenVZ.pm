@@ -166,6 +166,8 @@ my $restore_openvz = sub {
     eval {
 	if ($force && -f $conffile) {
 	    my $conf = PVE::OpenVZ::load_config($vmid);
+		
+		PVE::OpenVZ::removeExtendedAttributes($conf, $vmid);
 
 	    my $oldprivate = PVE::OpenVZ::get_privatedir($conf, $vmid);
 	    rmtree $oldprivate if -d $oldprivate;
@@ -243,6 +245,7 @@ my $reinstall_openvz = sub {
 
     eval {
 		my $conf = PVE::OpenVZ::load_config($vmid);
+		PVE::OpenVZ::removeExtendedAttributes($conf, $vmid);
 		rmtree $private if -d $private;
 	
 		my $cmd = ['vzctl', '--skiplock', 'create', $vmid,
@@ -905,6 +908,7 @@ __PACKAGE__->register_method({
 	my $conf = PVE::OpenVZ::load_config($param->{vmid});
 
 	my $realcmd = sub {
+		PVE::OpenVZ::removeExtendedAttributes($conf, $vmid);
 	    my $cmd = ['vzctl', 'destroy', $vmid ];
 
 	    run_command($cmd);

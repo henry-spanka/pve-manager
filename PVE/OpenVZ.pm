@@ -123,6 +123,15 @@ sub get_disk_quota {
     return $disk_quota;
 }
 
+sub removeExtendedAttributes {
+    my ($conf, $vmid) = @_;
+	
+	if($conf && $vmid) {
+		my $privatedir = get_privatedir($conf, $vmid);
+		system("/usr/bin/chattr -ia -R ${privatedir} >/dev/null 2>&1") if -d $privatedir;
+	}
+}
+
 sub read_user_beancounters {
     my $ubc = {};
 
