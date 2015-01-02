@@ -1,6 +1,6 @@
 /*jslint confusion: true */
 Ext.define('PVE.qemu.Options', {
-    extend: 'PVE.grid.ObjectGrid',
+    extend: 'PVE.grid.PendingObjectGrid',
     alias: ['widget.PVE.qemu.Options'],
 
     initComponent : function() {
@@ -332,7 +332,7 @@ Ext.define('PVE.qemu.Options', {
 	};
 
 	Ext.applyIf(me, {
-	    url: "/api2/json/nodes/" + nodename + "/qemu/" + vmid + "/config",
+	    url: "/api2/json/nodes/" + nodename + "/qemu/" + vmid + "/pending",
 	    cwidth1: 170,
 	    tbar: [ edit_btn ],
 	    rows: rows,
