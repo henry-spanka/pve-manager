@@ -106,7 +106,7 @@ eval {
 	lockfile => $lockfile,
 	ssl => {
 	    # Note: older versions are considered insecure, for example
-	    # search for "Poodle" attack
+	    # search for "Poodle"-Attac
 	    sslv2 => 0,
 	    sslv3 => 0,
 	    cipher_list => $proxyconf->{CIPHERS} || 'HIGH:MEDIUM:!aNULL:!MD5',
