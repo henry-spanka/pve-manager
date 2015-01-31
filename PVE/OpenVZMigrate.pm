@@ -300,6 +300,7 @@ sub phase3_cleanup {
     if (!$self->{shared}) {
 	# destroy local container data
 	$self->log('info', "removing container files on local node");
+    PVE::OpenVZ::removeExtendedAttributes($conf, $vmid);
 	my $cmd = [ 'rm', '-rf', $self->{privatedir} ];
 	$self->cmd_logerr($cmd);
     }
