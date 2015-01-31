@@ -1,3 +1,11 @@
+pve-manager (3.3-13) unstable; urgency=low
+
+  * fixed extended attributes on deletion, migration and reinstallation
+
+  * delete database file on destroying a container
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sat, 31 Jan 2015 15:02:57 +0100
+
 pve-manager (3.3-12) unstable; urgency=low
 
   * refs #29 - fixed network usage function
