@@ -913,6 +913,8 @@ __PACKAGE__->register_method({
 
 	    run_command($cmd);
 
+	    PVE::Database::remove_vmdb_conf($vmid);
+
 	    PVE::AccessControl::remove_vm_from_pool($vmid);
 	};
 
