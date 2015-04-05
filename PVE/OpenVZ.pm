@@ -164,18 +164,24 @@ sub read_container_network_usage {
 
     my $recv = 0;
     my $trmt = 0;
+    my $recvpkts = 0;
+    my $trmtpkts = 0;
 
     my $netparser = sub {
-	my $line = shift;
-	if ($line =~ m/^\s*(.*):\s*(\d+)\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+(\d+)\s+/) {
-	    my $interface = $1;
-	    my $received = $2;
-	    my $transmitted = $3;
-	    return if $1 eq 'lo';
-	    return if $1 !~ m/^eth[\d]+|veth[\d]+|venet[\d]+$/i;
-	    $recv += $received;
-	    $trmt += $transmitted;
-	}
+		my $line = shift;
+		if ($line =~ m/^\s*(.*):\s*(\d+)\s+(\d+)\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+(\d+)\s+(\d+)\s+/) {
+		    my $interface = $1;
+		    my $received = $2;
+		    my $receivedpkts = $3;
+		    my $transmitted = $4;
+		    my $transmittedpkts = $5;
+		    return if $1 eq 'lo';
+		    return if $1 !~ m/^eth[\d]+|veth[\d]+|venet[\d]+$/i;
+		    $recv += $received;
+		    $trmt += $transmitted;
+		    $recvpkts += $receivedpkts;
+		    $trmtpkts += $transmittedpkts;
+		}
     };
 
     # fixme: can we get that info directly (with vzctl exec)?
@@ -184,7 +190,7 @@ sub read_container_network_usage {
     my $err = $@;
     syslog('err', $err) if $err;
 
-    return ($recv, $trmt);
+    return ($recv, $trmt, $recvpkts, $trmtpkts);
 };
 
 sub read_container_blkio_stat {
@@ -247,6 +253,9 @@ sub vmstatus {
 
 	    $d->{netout} = 0;
 	    $d->{netin} = 0;
+
+	    $d->{pktsout} = 0;
+	    $d->{pktsin} = 0;
 
 	    $d->{diskread} = 0;
 	    $d->{diskwrite} = 0;
@@ -344,7 +353,7 @@ sub vmstatus {
     foreach my $vmid (keys %$list) {
 	my $d = $list->{$vmid};
 	next if !$d || !$d->{status} || $d->{status} ne 'running';
-	($d->{netin}, $d->{netout}) = read_container_network_usage($vmid);
+	($d->{netin}, $d->{netout}, $d->{pktsin}, $d->{pktsout}) = read_container_network_usage($vmid);
 	($d->{diskread}, $d->{diskwrite}) = read_container_blkio_stat($vmid); 
     }
 
