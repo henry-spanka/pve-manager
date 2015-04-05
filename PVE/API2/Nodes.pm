@@ -346,6 +346,8 @@ __PACKAGE__->register_method({
                         dev  => "net$netid",
                         in   => $netdev->{$dev}->{transmit},
                         out  => $netdev->{$dev}->{receive},
+                        inpkts => $netdev->{$dev}->{transmitpkts},
+                        outpkts => $netdev->{$dev}->{receivepkts},
                     }
                 );
 	}
