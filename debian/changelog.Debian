@@ -1,3 +1,11 @@
+pve-manager (3.3-14) unstable; urgency=low
+
+  * implemented packets accounting for host nodes
+
+  * implemented packets accounting for OpenVZ
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sun, 05 Apr 2015 15:10:56 +0200
+
 pve-manager (3.3-13) unstable; urgency=low
 
   * fixed extended attributes on deletion, migration and reinstallation
