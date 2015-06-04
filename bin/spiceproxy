@@ -21,7 +21,7 @@ use base qw(PVE::Daemon);
 
 my $cmdline = [$0, @ARGV];
 
-my %daemon_options = (restart_on_error => 5, stop_wait_time => 15, run_dir => '/var/run/pveproxy');
+my %daemon_options = (restart_on_error => 5, stop_wait_time => 15, pidfile => '/var/run/pveproxy/spiceproxy.pid');
 
 my $daemon = __PACKAGE__->new('spiceproxy', $cmdline, %daemon_options);
 
