@@ -1,3 +1,9 @@
+pve-manager (3.3-15) unstable; urgency=low
+
+  * fixes #1 - renamed run_dir to pidfile
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Thu, 04 Jun 2015 16:32:21 +0200
+
 pve-manager (3.3-14) unstable; urgency=low
 
   * implemented packets accounting for host nodes
