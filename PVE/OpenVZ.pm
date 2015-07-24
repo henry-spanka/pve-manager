@@ -470,6 +470,16 @@ my $confdesc = {
 	type => 'string',
     description => "Specifies capabilitys for the container.",
     },
+    iolimit => {
+    	optional => 1,
+    	type => 'integer',
+    	description => 'IO Limit of the container'
+    },
+    iopslimit => {
+    	optional => 1,
+    	type => 'integer',
+    	description => 'IOPS Limit of the container'
+    }
 };
 
 # add JSON properties for create and set function
@@ -1155,6 +1165,18 @@ sub update_ovz_config {
         $veconf->{'capability'}->{value} = $param->{capability};
         push @$changes, '--capability', "$param->{capability}";
     }
+
+    # IO settings
+
+    if(defined($param->{iolimit})) {
+    	$veconf->{'iolimit'}->{value} = $param->{iolimit};
+    	push @$changes, '--iolimit', "$param->{iolimit}M"; # IO Limit parameter is in MegaBytes
+    }
+    if(defined($param->{iopslimit})) {
+    	$veconf->{'iopslimit'}->{value} = $param->{iopslimit};
+    	push @$changes, '--iopslimit', "$param->{iopslimit}";
+    }
+
 
     if (defined($param->{netif})) {
 	my $ifaces = {};
