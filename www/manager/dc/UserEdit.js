@@ -99,7 +99,20 @@ Ext.define('PVE.dc.UserEdit', {
 		uncheckedValue: 0,
 		defaultValue: 1,
 		checked: true
-	    }
+	    },
+        {
+            xtype: 'pvecheckbox',
+            fieldLabel: gettext('Duo Security'),
+            name: 'duosecurity',
+            uncheckedValue: 0,
+            defaultValue: 0,
+            checked: false
+        },
+        {
+            xtype: 'textfield',
+            fieldLabel: gettext('Duo Security Username'),
+            name: 'duosecurity_username',
+        }
         ];
 
         var column2 = [

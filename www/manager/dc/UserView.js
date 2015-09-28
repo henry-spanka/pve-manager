@@ -203,6 +203,19 @@ Ext.define('PVE.dc.UserView', {
 		    dataIndex: 'enable'
 		},
 		{
+		    header: gettext('Duo Security'),
+		    width: 80,
+		    sortable: true,
+		    renderer: PVE.Utils.format_boolean,
+		    dataIndex: 'duosecurity'
+		},
+		{
+		    header: gettext('Duo Security Username'),
+		    width: 80,
+		    sortable: true,
+		    dataIndex: 'duosecurity_username'
+		},
+		{
 		    header: gettext('Expire'),
 		    width: 80,
 		    sortable: true,

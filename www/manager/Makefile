@@ -73,6 +73,7 @@ JSSRC= 				                 	\
 	window/NotesEdit.js				\
 	window/Backup.js				\
 	window/Restore.js				\
+	window/DuoSecurity.js 			\
 	panel/NotesView.js				\
 	grid/CheckColumn.js				\
 	grid/SelectFeature.js				\

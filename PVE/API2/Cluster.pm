@@ -39,6 +39,8 @@ __PACKAGE__->register_method ({
 });
 
 my $dc_schema = PVE::Cluster::get_datacenter_schema();
+my $duosecurity_schema = PVE::Cluster::get_duosecurity_schema();
+
 my $dc_properties = { 
     delete => {
 	type => 'string', format => 'pve-configid-list',
@@ -48,6 +50,12 @@ my $dc_properties = {
 };
 foreach my $opt (keys %{$dc_schema->{properties}}) {
     $dc_properties->{$opt} = $dc_schema->{properties}->{$opt};
+}
+
+my $duosecurity_properties = {};
+
+foreach my $opt (keys %{$duosecurity_schema->{properties}}) {
+    $duosecurity_properties->{$opt} = $duosecurity_schema->{properties}->{$opt};
 }
 
 __PACKAGE__->register_method ({
@@ -81,6 +89,7 @@ __PACKAGE__->register_method ({
 	    { name => 'status' },
 	    { name => 'nextid' },
 	    { name => 'firewall' },
+        { name => 'duosecurity' },
 	    ];
 
 	return $result;
@@ -348,6 +357,86 @@ __PACKAGE__->register_method({
 
 	return undef;
     }});
+
+__PACKAGE__->register_method({
+    name => 'get_duosecurity', 
+    path => 'duosecurity', 
+    method => 'GET',
+    description => "Get duosecurity options.",
+    permissions => {
+        check => [
+            'perm',
+            '/', [
+                'User.Modify',
+                'Permissions.Modify'
+            ]
+        ],
+    },
+    parameters => {
+        additionalProperties => 0,
+        properties => {},
+    },
+    returns => {
+        type => "object",
+        properties => {},
+    },
+    code => sub {
+        my ($param) = @_;
+
+        return PVE::Cluster::cfs_read_file('duosecurity.cfg');
+    }
+});
+
+__PACKAGE__->register_method({
+    name => 'set_duosecurity', 
+    path => 'duosecurity', 
+    method => 'PUT',
+    description => "Set duosecurity options.",
+    permissions => {
+        check => [
+            'perm',
+            '/', [
+                'User.Modify',
+                'Permissions.Modify'
+            ]
+        ],
+    },
+    protected => 1,
+    parameters => {
+        additionalProperties => 0,
+        properties => $duosecurity_properties,
+    },
+    returns => {
+        type => "null"
+    },
+    code => sub {
+        my ($param) = @_;
+
+        my $filename = 'duosecurity.cfg';
+
+        my $delete = extract_param($param, 'delete');
+
+        my $code = sub {
+
+            my $conf = cfs_read_file($filename);
+
+            foreach my $opt (keys %$param) {
+                $conf->{$opt} = $param->{$opt};
+            }
+
+            foreach my $opt (PVE::Tools::split_list($delete)) {
+                delete $conf->{$opt};
+            };
+
+            cfs_write_file($filename, $conf);
+        };
+
+        cfs_lock_file($filename, undef, $code);
+        die $@ if $@;
+
+        return undef;
+    }
+});
 
 my $parse_clustat = sub {
     my ($clinfo, $members, $rrd, $nodename, $raw) = @_;

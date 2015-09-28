@@ -12,7 +12,8 @@ Ext.define('PVE.window.LoginWindow', {
 
 	    form.submit({
 		failure: function(f, resp){
-		    me.el.unmask();
+		    me.el.unmask();    
+
 		    Ext.MessageBox.alert(gettext('Error'), 
 					 gettext("Login failed. Please try again"), 
 					 function() {
@@ -22,8 +23,32 @@ Ext.define('PVE.window.LoginWindow', {
 		},
 		success: function(f, resp){
 		    me.el.unmask();
-		    
+
 		    var handler = me.handler || Ext.emptyFn;
+
+            if(resp.result.data.duosecurity == 1) {
+                if(resp.result.data.result != 'auth') {
+                    Ext.MessageBox.alert(gettext('Error'), 
+                        gettext( 'Duo Two Factor: ' + resp.result.data.status_msg), 
+                        function() {
+                            var uf = form.findField('username');
+                            uf.focus(true, true);
+                        }
+                    );
+                    return;
+                }
+                me.close();
+                Ext.create('PVE.window.DuoSecurityWindow', { 'duoresponse': resp.result.data,
+                	username: form.findField('username').getValue(),
+                	password: form.findField('password').getValue(),
+                	realm: form.findField('realm').getValue(),
+                	handler: function(data) {
+                		handler.call(me, data);
+                	}
+                }).show();
+                return;
+            }
+		    
 		    handler.call(me, resp.result.data);
 		    me.close();
 		}

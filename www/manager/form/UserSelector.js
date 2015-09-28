@@ -58,8 +58,9 @@ Ext.define('PVE.form.UserSelector', {
     Ext.define('pve-users', {
 	extend: 'Ext.data.Model',
 	fields: [ 
-	    'userid', 'firstname', 'lastname' , 'email', 'comment',
-	    { type: 'boolean', name: 'enable' }, 
+	    'userid', 'firstname', 'lastname' , 'email', 'comment', 'duosecurity_username',
+	    { type: 'boolean', name: 'enable' },
+	    { type: 'boolean', name: 'duosecurity' },
 	    { type: 'date', dateFormat: 'timestamp', name: 'expire' }
 	],
 	proxy: {
