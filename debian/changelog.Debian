@@ -1,3 +1,9 @@
+pve-manager (3.3-17) unstable; urgency=low
+
+  * closes #3 - implement two-factor authentication via DuoSecurity
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Mon, 28 Sep 2015 17:13:30 +0200
+
 pve-manager (3.3-16) unstable; urgency=low
 
   * iolimit and iopslimit can be set
