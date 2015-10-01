@@ -541,39 +541,32 @@ __PACKAGE__->register_method({
 		if $digest && $digest ne $conf->{digest};
 			
 		PVE::OpenVZ::set_rootpasswd($vmid, $param->{password}) if($param->{password});
+
+        my $devnodes = [];
+        my $capabilities = [];
         
 		if($param->{tuntap}) {
-			my $conf = PVE::OpenVZ::load_config($vmid);
-			my $privatedir = PVE::OpenVZ::get_privatedir($conf, $vmid);
-
 			if($param->{tuntap} eq "enable") {
-				$param->{devices} = 'c:10:200:rw';
-				$param->{capability} = 'net_admin:on';
-				my $cmd_tuntap = ["mkdir -p $privatedir/dev/net"];
-				run_command($cmd_tuntap);
-				my $cmd_tuntap1 = ["mknod $privatedir/dev/net/tun c 10 200 >/dev/null 2>&1 || true"];
-				run_command($cmd_tuntap1);
-				my $cmd_tuntap2 = ["chmod 600 $privatedir/dev/net/tun"];
-				run_command($cmd_tuntap2);
+                push(@$devnodes, 'net/tun:rw');
+				push(@$capabilities, 'net_admin:on');
 			} else {
-				$param->{devices} = 'c:10:200:none';
-				$param->{capability} = 'net_admin:off';
-				my $cmd_tuntap = ["rm -rf $privatedir/dev/net/tun"];
-				run_command($cmd_tuntap);
+				push(@$devnodes, 'net/tun:none');
+				push(@$capabilities, 'net_admin:off');
 			}
 		}
         if($param->{fuse}) {
-            my $conf = PVE::OpenVZ::load_config($vmid);
-            my $privatedir = PVE::OpenVZ::get_privatedir($conf, $vmid);
-
             if($param->{fuse} eq "enable") {
-				$param->{devnodes} = 'fuse:rw';
+				push(@$devnodes, 'fuse:rw');
             } else {
-				$param->{devnodes} = 'fuse:none';
-				my $cmd_fuse = ["rm -rf $privatedir/dev/fuse"];
-				run_command($cmd_fuse);
+				push(@$devnodes, 'fuse:none');
             }
         }
+
+        push(@$devnodes, split(' ', $param->{devnodes})) if(defined($param->{devnodes}));
+        push(@$capabilities, split(' ', $param->{capability})) if(defined($param->{capability}));
+
+        $param->{devnodes} = join(' ', @$devnodes) if(@$devnodes);
+        $param->{capability} = join(' ', @$capabilities) if(@$capabilities);
 
 	    my $changes = PVE::OpenVZ::update_ovz_config($vmid, $conf, $param);
 
