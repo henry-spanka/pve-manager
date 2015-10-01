@@ -471,7 +471,7 @@ my $confdesc = {
     iolimit => {
     	optional => 1,
     	type => 'integer',
-    	description => 'IO Limit of the container'
+    	description => 'IO Limit of the container in MegaBytes'
     },
     iopslimit => {
     	optional => 1,
@@ -825,6 +825,8 @@ my $ovz_ressources = {
     diskinodes => \&parse_res_num_num,
     quotatime => \&parse_integer,
     quotaugidlimit => \&parse_integer,
+    iolimit => \&parse_integer,
+    iopslimit => \&parse_integer,
 
     cpuunits => \&parse_integer,
     cpulimit => \&parse_integer,
