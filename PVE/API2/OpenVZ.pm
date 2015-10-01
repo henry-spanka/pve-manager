@@ -28,33 +28,12 @@ use Data::Dumper; # fixme: remove
 my $pve_base_ovz_config = <<__EOD;
 ONBOOT="no"
 
-PHYSPAGES="0:256M"
-SWAPPAGES="0:256M"
-KMEMSIZE="116M:128M"
-DCACHESIZE="58M:64M"
-LOCKEDPAGES="128M"
-PRIVVMPAGES="unlimited"
-SHMPAGES="unlimited"
-NUMPROC="unlimited"
-VMGUARPAGES="0:unlimited"
-OOMGUARPAGES="0:unlimited"
-NUMTCPSOCK="unlimited"
-NUMFLOCK="unlimited"
-NUMPTY="unlimited"
-NUMSIGINFO="unlimited"
-TCPSNDBUF="unlimited"
-TCPRCVBUF="unlimited"
-OTHERSOCKBUF="unlimited"
-DGRAMRCVBUF="unlimited"
-NUMOTHERSOCK="unlimited"
-NUMFILE="unlimited"
-NUMIPTENT="unlimited"
+VM_OVERCOMMIT="1"
+VE_LAYOUT="ploop"
 
 # Disk quota parameters (in form of softlimit:hardlimit)
 DISKSPACE="unlimited:unlimited"
-DISKINODES="unlimited:unlimited"
-QUOTATIME="0"
-QUOTAUGIDLIMIT="0"
+
 
 # CPU fair scheduler parameter
 CPUUNITS="1000"
@@ -316,7 +295,7 @@ __PACKAGE__->register_method({
 		optional => 1,
 		type => 'string', format => 'pve-poolid',
 		description => "Add the VM to the specified pool.",
-	    },
+	    }
 	}),
     },
     returns => { 
@@ -823,6 +802,9 @@ __PACKAGE__->register_method({
 	if ($veconf->{ostemplate} && $veconf->{ostemplate}->{value}) {
 	    $conf->{ostemplate} = $veconf->{ostemplate}->{value};
 	}
+    if ($veconf->{ve_layout} && $veconf->{ve_layout}->{value}) {
+        $conf->{ve_layout} = $veconf->{ve_layout}->{value};
+    }
 
 	my $stcfg = cfs_read_file("storage.cfg");
 

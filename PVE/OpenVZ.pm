@@ -415,14 +415,12 @@ my $confdesc = {
 	type => 'integer',
 	description => "Set quota grace period (seconds).",
 	minimum => 0,
-	default => 0,
     },
     quotaugidlimit => {
 	optional => 1,
 	type => 'integer',
 	description => "Set maximum number of user/group IDs in a container for which disk quota inside the container will be accounted. If this value is set to 0, user and group quotas inside the container will not.",
 	minimum => 0,
-	default => 0,
     },
     hostname => {
 	optional => 1,
@@ -479,7 +477,13 @@ my $confdesc = {
     	optional => 1,
     	type => 'integer',
     	description => 'IOPS Limit of the container'
-    }
+    },
+    vm_overcommit => {
+        optional => 1,
+        minimum => 1,
+        type => 'float',
+        description => 'Set VM overcommitment value to float. If set, it is used to calculate privmmpages parameter in case it is not set explicitly. Default value is 0, meaning unlimited privvmpages.'
+    },
 };
 
 # add JSON properties for create and set function
@@ -807,6 +811,7 @@ my $ovz_ressources = {
     shmpages => \&parse_res_pages_ignore,
     physpages => \&parse_res_pages_pages,
     swappages => \&parse_res_ignore_pages,
+    vm_overcommit => 'float',
 
     kmemsize => \&parse_res_bytes_bytes,
     tcpsndbuf => \&parse_res_bytes_bytes,
@@ -851,6 +856,7 @@ my $ovz_ressources = {
     pci => 'string',
     features => 'string',
     ioprio => \&parse_integer,
+    ve_layout => 'string'
 
 };
 
@@ -1033,19 +1039,19 @@ sub update_ovz_config {
 
     # memory related parameter 
 
-    &$push_bl_changes('vmguarpages', 0, $res_unlimited);
-    &$push_bl_changes('oomguarpages', 0, $res_unlimited);
-    &$push_bl_changes('privvmpages', $res_unlimited, $res_unlimited);
+    #&$push_bl_changes('vmguarpages', 0, $res_unlimited);
+    #&$push_bl_changes('oomguarpages', 0, $res_unlimited);
+    #&$push_bl_changes('privvmpages', $res_unlimited, $res_unlimited);
 
     # lock half of $mem
-    my $lockedpages = int($mem*1024/8);
-    &$push_bl_changes('lockedpages', $lockedpages, undef);
+    #my $lockedpages = int($mem*1024/8);
+    #&$push_bl_changes('lockedpages', $lockedpages, undef);
 
-    my $kmemsize = int($mem/2);
-    &$push_bl_changes('kmemsize', int($kmemsize/1.1)*1024*1024, $kmemsize*1024*1024);
+    #my $kmemsize = int($mem/2);
+    #&$push_bl_changes('kmemsize', int($kmemsize/1.1)*1024*1024, $kmemsize*1024*1024);
 
-    my $dcachesize = int($mem/4);
-    &$push_bl_changes('dcachesize', int($dcachesize/1.1)*1024*1024, $dcachesize*1024*1024);
+    #my $dcachesize = int($mem/4);
+    #&$push_bl_changes('dcachesize', int($dcachesize/1.1)*1024*1024, $dcachesize*1024*1024);
 
     my $physpages = int($mem*1024/4);
     &$push_bl_changes('physpages', 0, $physpages);
@@ -1053,19 +1059,24 @@ sub update_ovz_config {
     my $swappages = int($swap*1024/4);
     &$push_bl_changes('swappages', 0, $swappages);
 
+    if(defined($param->{vm_overcommit})) {
+        $veconf->{'vm_overcommit'}->{value} = $param->{vm_overcommit};
+        push @$changes, '--vm_overcommit', "$param->{vm_overcommit}";
+    }
+
 
     # disk quota parameters
-    if (!$disk || ($disk * 1.1) >= ($res_unlimited / (1024 * 1024))) {
+    if (!$disk) {
 	&$push_bl_changes('diskspace', $res_unlimited, $res_unlimited);
-	&$push_bl_changes('diskinodes', $res_unlimited, $res_unlimited);
+	#&$push_bl_changes('diskinodes', $res_unlimited, $res_unlimited);
     } else {
 	my $diskspace = int ($disk * 1024 * 1024);
-	my $diskspace_lim = int ($diskspace * 1.1);
-	&$push_bl_changes('diskspace', $diskspace, $diskspace_lim);
-	my $diskinodes = int ($disk * 200000);
-	my $diskinodes_lim = int ($disk * 220000);
-	&$push_bl_changes('diskinodes', $diskinodes, $diskinodes_lim);
+	&$push_bl_changes('diskspace', $diskspace, $diskspace);
+	#my $diskinodes = int ($disk * 200000);
+	#my $diskinodes_lim = int ($disk * 220000);
+	#&$push_bl_changes('diskinodes', $diskinodes, $diskinodes_lim);
     }
+
     if ($veconf->{'quotatime'}->{value} != $quotatime) {
 	$veconf->{'quotatime'}->{value} = $quotatime;
 	push @$changes, '--quotatime', "$quotatime";
