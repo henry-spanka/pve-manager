@@ -1336,7 +1336,7 @@ sub set_rootpasswd {
 	   $opt_rootpasswd = crypt(encode("utf8", $opt_rootpasswd), "\$1\$$time\$");
     }
 
-    my $cmd = ['vzctl', 'set', $vmid, '--userpasswd', "root:${opt_rootpasswd}"];
+    my $cmd = ['vzctl', '--skiplock', 'set', $vmid, '--userpasswd', "root:${opt_rootpasswd}"];
     eval {
         run_command($cmd);
     };
