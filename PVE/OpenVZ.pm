@@ -1328,62 +1328,20 @@ sub vm_resume {
     }
 }
 
-sub replacepw {
-    my ($file, $epw) = @_;
-
-    my $tmpfile = "$file.$$";
-
-    eval  {
-	open (SRC, "<$file") ||
-	    die "unable to open file '$file' - $!";
-
-	my $st = File::stat::stat(\*SRC) ||
-	    die "unable to stat file - $!";
-
-	open (DST, ">$tmpfile") ||
-	    die "unable to open file '$tmpfile' - $!";
-
-	# copy owner and permissions
-	chmod $st->mode, \*DST;
-	chown $st->uid, $st->gid, \*DST;
-	
-	while (defined (my $line = <SRC>)) {
-	    $line =~ s/^root:[^:]*:/root:${epw}:/;
-	    print DST $line;
-	}
-    };
-
-    my $err = $@;
-
-    close (SRC);
-    close (DST);
-
-    if ($err) {
-	unlink $tmpfile;
-    } else {
-	rename $tmpfile, $file;
-	unlink $tmpfile; # in case rename fails
-    }	
-}
-
 sub set_rootpasswd {
-    my ($privatedir, $opt_rootpasswd) = @_;
-
-    my $pwfile = "$privatedir/etc/passwd";
-
-    return if ! -f $pwfile;
-
-    my $shadow = "$privatedir/etc/shadow";
+    my ($vmid, $opt_rootpasswd) = @_;
 
     if ($opt_rootpasswd !~ m/^\$/) {
-	my $time = substr (Digest::SHA::sha1_base64 (time), 0, 8);
-	$opt_rootpasswd = crypt(encode("utf8", $opt_rootpasswd), "\$1\$$time\$");
-    };
+	   my $time = substr (Digest::SHA::sha1_base64 (time), 0, 8);
+	   $opt_rootpasswd = crypt(encode("utf8", $opt_rootpasswd), "\$1\$$time\$");
+    }
 
-    if (-f $shadow) {
-	replacepw ($shadow, $opt_rootpasswd);
-	replacepw ($pwfile, 'x');
-    } else {
-	replacepw ($pwfile, $opt_rootpasswd);
+    my $cmd = ['vzctl', 'set', $vmid, '--userpasswd', "root:${opt_rootpasswd}"];
+    eval {
+        run_command($cmd);
+    };
+    if (my $err = $@) {
+        syslog("err", "CT $vmid change root password failed - $err");
+        die $err;
     }
 }

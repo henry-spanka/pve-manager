@@ -454,9 +454,7 @@ __PACKAGE__->register_method({
 			   '--ostemplate', $archive, '--private', $private];
 		run_command($cmd);
 		
-		# hack: vzctl '--userpasswd' starts the CT, but we want 
-		# to avoid that for create
-		PVE::OpenVZ::set_rootpasswd($private, $password) 
+		PVE::OpenVZ::set_rootpasswd($vmid, $password) 
 		    if defined($password);
 	    }
 
@@ -542,10 +540,8 @@ __PACKAGE__->register_method({
 	    die "checksum missmatch (file change by other user?)\n" 
 		if $digest && $digest ne $conf->{digest};
 			
-		if($param->{password}) {
-			my $cmd = ['vzctl', '--skiplock', 'set', $vmid, '--userpasswd', "root:$param->{password}"];
-			run_command($cmd);
-		}
+		PVE::OpenVZ::set_rootpasswd($vmid, $param->{password}) if($param->{password});
+        
 		if($param->{tuntap}) {
 			my $conf = PVE::OpenVZ::load_config($vmid);
 			my $privatedir = PVE::OpenVZ::get_privatedir($conf, $vmid);
@@ -1011,7 +1007,7 @@ __PACKAGE__->register_method({
 		    run_command($cmd);
 		}
 		# and setting root password
-		PVE::OpenVZ::set_rootpasswd($privatedir, $password) 
+		PVE::OpenVZ::set_rootpasswd($vmid, $password) 
 		    if defined($password);
 
 	};
