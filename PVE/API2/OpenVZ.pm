@@ -431,31 +431,24 @@ __PACKAGE__->register_method({
 	    PVE::Cluster::check_cfs_quorum();
 
 	    if ($param->{restore}) {
-		&$restore_openvz($private, $archive, $vmid, $param->{force});
+    		&$restore_openvz($private, $archive, $vmid, $param->{force});
 
-		# is this really needed?
-		my $cmd = ['vzctl', '--skiplock', '--quiet', 'set', $vmid, 
-			   '--applyconfig_map', 'name', '--save'];
-		run_command($cmd);
+    		# is this really needed?
+    		my $cmd = ['vzctl', '--skiplock', '--quiet', 'set', $vmid, 
+    			   '--applyconfig_map', 'name', '--save'];
+    		run_command($cmd);
 
-		# reload config
-		$conf = PVE::OpenVZ::load_config($vmid);
-
-		# and initialize quota
-		my $disk_quota = $conf->{disk_quota}->{value};
-		if (!defined($disk_quota) || ($disk_quota != 0)) {
-		    $cmd = ['vzctl', '--skiplock', 'quotainit', $vmid];
-		    run_command($cmd);
-		}
+    		# reload config
+    		$conf = PVE::OpenVZ::load_config($vmid);
 
 	    } else {
-		PVE::Tools::file_set_contents($basecfg_fn, $rawconf);
-		my $cmd = ['vzctl', '--skiplock', 'create', $vmid,
-			   '--ostemplate', $archive, '--private', $private];
-		run_command($cmd);
-		
-		PVE::OpenVZ::set_rootpasswd($vmid, $password) 
-		    if defined($password);
+    		PVE::Tools::file_set_contents($basecfg_fn, $rawconf);
+    		my $cmd = ['vzctl', '--skiplock', 'create', $vmid,
+    			   '--ostemplate', $archive, '--private', $private];
+    		run_command($cmd);
+    		
+    		PVE::OpenVZ::set_rootpasswd($vmid, $password) 
+    		    if defined($password);
 	    }
 
 	    PVE::AccessControl::add_vm_to_pool($vmid, $pool) if $pool;
