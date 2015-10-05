@@ -14,6 +14,7 @@ use PVE::INotify;
 use PVE::JSONSchema;
 use Digest::SHA;
 use Encode;
+use Data::UUID;
 
 use constant SCRIPT_EXT => qw (start stop mount umount premount postumount);
 
@@ -1356,5 +1357,75 @@ sub set_rootpasswd {
     if (my $err = $@) {
         syslog("err", "CT $vmid change root password failed - $err");
         die $err;
+    }
+}
+
+sub getSnapshots {
+    my $vmid = shift;
+
+    my $cmd = ['vzctl', 'snapshot-list', $vmid, '-H', '-o', 'parent_uuid,current,uuid,date,name']; # Just to be sure, OpenVZ does change the default order
+    my $snapshots = {};
+
+    eval {
+        run_command($cmd, outfunc => sub {
+            my $line = shift;
+
+            if($line =~ /^[\s\{]{1}(\s{36}|[a-z0-9-]+)[\s\}]{1}\s(\*|\s)\s\{([a-z0-9-]+)\}\s([0-9-]+\s[0-9:]+)\s{0,1}(.*)$/s) {
+                my ($parent, $current, $uuid, $date, $name) = ($1, $2, $3, $4, $5);
+                $snapshots->{$uuid} = { parent => $parent =~ /^ *$/ ? '' : $parent, current => $current eq '*' ? 1 : 0, date => $date, name => $name };
+            } else {
+                die "Could not parse line"; # Should normally not happen
+            }
+        });
+    };
+    if (my $err = $@) {
+        die "Unable to get snapshots: $err";
+    }
+    return $snapshots;
+}
+
+sub createSnapshot {
+    my ($vmid, $name, $skipsuspend, $uuid) = @_;
+
+    $uuid = Data::UUID->new->create_str() if !$uuid;
+
+    my $cmd = ['vzctl', 'snapshot', $vmid, '--id', $uuid];
+
+    push $cmd, '--name', $name if $name;
+    push $cmd, '--skip-suspend' if $skipsuspend;
+
+    eval {
+        run_command($cmd);
+    };
+    if (my $err = $@) {
+        die "Unable to create snapshot: $err";
+    }
+
+    return $uuid;
+}
+
+sub deleteSnapshot {
+    my ($vmid, $uuid) = @_;
+
+    my $cmd = ['vzctl', 'snapshot-delete', $vmid, '--id', $uuid];
+
+    eval {
+        run_command($cmd);
+    };
+    if (my $err = $@) {
+        die "Unable to delete snapshot: $err";
+    }
+}
+
+sub switchSnapshot {
+    my ($vmid, $uuid) = @_;
+
+    my $cmd = ['vzctl', 'snapshot-switch', $vmid, '--id', $uuid];
+
+    eval {
+        run_command($cmd);
+    };
+    if (my $err = $@) {
+        die "Unable to switch snapshot: $err";
     }
 }

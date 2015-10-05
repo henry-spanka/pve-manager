@@ -610,6 +610,7 @@ __PACKAGE__->register_method({
 	    { subdir => 'firewall' },
 		{ subdir => 'reinstall' },
 		{ subdir => 'database' },
+        { subdir => 'snapshot' }
 	    ];
 	
 	return $res;
@@ -1811,5 +1812,220 @@ __PACKAGE__->register_method({
 	    return $rpcenv->fork_worker('vzmigrate', $vmid, $authuser, $realcmd);
 	}
     }});
+
+__PACKAGE__->register_method({
+    name => 'snapshot_list',
+    path => '{vmid}/snapshot',
+    method => 'GET',
+    protected => 1,
+    proxyto => 'node',
+    description => "List all snapshots.",
+    permissions => {
+        check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
+    },
+    parameters => {
+        additionalProperties => 0,
+        properties => {
+            node => get_standard_option('pve-node'),
+            vmid => get_standard_option('pve-vmid'),
+        },
+    },
+    returns => {
+        type => 'array',
+        items => {
+            type => "object",
+            properties => {},
+        }
+    },
+    code => sub {
+        my ($param) = @_;
+
+        my $rpcenv = PVE::RPCEnvironment::get();
+
+        my $authuser = $rpcenv->get_user();
+
+        my $node = extract_param($param, 'node');
+
+        my $vmid = extract_param($param, 'vmid');
+
+        my $res = [];
+
+        my $snapshots = PVE::OpenVZ::getSnapshots($vmid);
+
+        foreach my $uuid (keys %$snapshots) {
+            my $d = $snapshots->{$uuid};
+            my $item = {
+                parent => $d->{parent},
+                uuid => $uuid,
+                current => $d->{current},
+                date => $d->{date},
+                name => $d->{name}
+            };
+            push @$res, $item;
+        }
+
+        return $res;
+    }
+});
+
+__PACKAGE__->register_method({
+    name => 'snapshot',
+    path => '{vmid}/snapshot',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Snapshot a container.",
+    permissions => {
+        check => ['perm', '/vms/{vmid}', [ 'VM.Snapshot' ]],
+    },
+    parameters => {
+        additionalProperties => 0,
+        properties => {
+            node => get_standard_option('pve-node'),
+            vmid => get_standard_option('pve-vmid'),
+            name => {
+                optional => 1,
+                type => 'string',
+                description => 'A name/description of the snapshot',
+                maxLength => 40
+            },
+            skipsuspend => {
+                optional => 1,
+                type => 'boolean',
+                'description' => 'If a container is running, and skipsuspend option is not specified, a container is checkpointed and then restored, and CT memory dump becomes the part of snapshot.'
+            }
+        },
+    },
+    returns => {
+        type => 'string',
+        description => "the task ID.",
+    },
+    code => sub {
+        my ($param) = @_;
+
+        my $rpcenv = PVE::RPCEnvironment::get();
+
+        my $authuser = $rpcenv->get_user();
+
+        my $node = extract_param($param, 'node');
+
+        my $vmid = extract_param($param, 'vmid');
+
+        my $name = extract_param($param, 'name');
+
+        my $realcmd = sub {
+            PVE::Cluster::log_msg('info', $authuser, "snapshot CT $vmid: $name");
+            PVE::OpenVZ::createSnapshot($vmid, $name, $param->{skipsuspend});
+        };
+
+        return $rpcenv->fork_worker('vzsnapshot', $vmid, $authuser, $realcmd);
+    }
+});
+
+__PACKAGE__->register_method({
+    name => 'snapshot_delete',
+    path => '{vmid}/snapshot/{uuid}',
+    method => 'DELETE',
+    protected => 1,
+    proxyto => 'node',
+    description => "Delete a CT snapshot",
+    permissions => {
+        check => ['perm', '/vms/{vmid}', [ 'VM.Snapshot' ]],
+    },
+    parameters => {
+        additionalProperties => 0,
+        properties => {
+            node => get_standard_option('pve-node'),
+            vmid => get_standard_option('pve-vmid'),
+            uuid => {
+                type => 'string',
+                description => 'UUID of the snapshot',
+                minLength => 36, # normal length of an UUID
+                maxLength => 36
+            },
+        },
+    },
+    returns => {
+        type => 'string',
+        description => "the task ID.",
+    },
+    code => sub {
+        my ($param) = @_;
+
+        my $rpcenv = PVE::RPCEnvironment::get();
+
+        my $authuser = $rpcenv->get_user();
+
+        my $node = extract_param($param, 'node');
+
+        my $vmid = extract_param($param, 'vmid');
+
+        my $uuid = extract_param($param, 'uuid');
+
+        my $snapshots = PVE::OpenVZ::getSnapshots($vmid);
+
+        die "snapshot not found for CT $vmid: $uuid" if !$snapshots->{$uuid};
+
+        my $realcmd = sub {
+            PVE::Cluster::log_msg('info', $authuser, "delete snapshot CT $vmid: $uuid");
+            PVE::OpenVZ::deleteSnapshot($vmid, $uuid);
+        };
+
+        return $rpcenv->fork_worker('vzdelsnapshot', $vmid, $authuser, $realcmd);
+    }
+});
+
+__PACKAGE__->register_method({
+    name => 'snapshot_switch',
+    path => '{vmid}/snapshot/{uuid}/switch',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Switches the container to a snapshot identified by uuid, restoring its file system state, configuration (if available) and its running state (if available).",
+    permissions => {
+        check => ['perm', '/vms/{vmid}', [ 'VM.Snapshot' ]],
+    },
+    parameters => {
+        additionalProperties => 0,
+        properties => {
+            node => get_standard_option('pve-node'),
+            vmid => get_standard_option('pve-vmid'),
+            uuid => {
+                type => 'string',
+                description => 'UUID of the snapshot',
+                minLength => 36, # normal length of an UUID
+                maxLength => 36
+            },
+        },
+    },
+    returns => {
+        type => 'string',
+        description => "the task ID.",
+    },
+    code => sub {
+        my ($param) = @_;
+
+        my $rpcenv = PVE::RPCEnvironment::get();
+
+        my $authuser = $rpcenv->get_user();
+
+        my $node = extract_param($param, 'node');
+
+        my $vmid = extract_param($param, 'vmid');
+
+        my $uuid = extract_param($param, 'uuid');
+
+        my $snapshots = PVE::OpenVZ::getSnapshots($vmid);
+
+        die "snapshot not found for CT $vmid: $uuid" if !$snapshots->{$uuid};
+
+        my $realcmd = sub {
+            PVE::Cluster::log_msg('info', $authuser, "switch snapshot CT $vmid: $uuid");
+            PVE::OpenVZ::switchSnapshot($vmid, $uuid);
+        };
+
+        return $rpcenv->fork_worker('vzsnapshotswitch', $vmid, $authuser, $realcmd);
+    }
+});
 
 1;
