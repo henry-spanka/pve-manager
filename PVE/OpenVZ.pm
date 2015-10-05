@@ -194,25 +194,47 @@ sub read_container_network_usage {
     return ($recv, $trmt, $recvpkts, $trmtpkts);
 };
 
-sub read_container_blkio_stat {
+sub read_container_ioacct_stat {
     my ($vmid) = @_;
 
     my $read = 0;
     my $write = 0;
 
-    my $filename = "/proc/vz/beancounter/$vmid/blkio.io_service_bytes";
+    my $filename = "/proc/bc/$vmid/ioacct";
     if (my $fh = IO::File->new ($filename, "r")) {
        
-	while (defined (my $line = <$fh>)) {
-	    if ($line =~ m/^\S+\s+Read\s+(\d+)$/) {
-		$read += $1;
-	    } elsif ($line =~ m/^\S+\s+Write\s+(\d+)$/) {
-		$write += $1;
-	    }
-	}
+    	while (defined (my $line = <$fh>)) {
+    	    if ($line =~ m/^\s+read\s+(\d+)$/) {
+    		  $read += $1;
+    	    } elsif ($line =~ m/^\s+write\s+(\d+)$/) {
+    		  $write += $1;
+    	    }
+    	}
     }
 
     return ($read, $write);
+};
+
+sub read_diskusages {
+    my $result = {};
+
+    my $diskparser = sub {
+        my $line = shift;
+        if ($line =~ m/^\s+(\d+)\s+(\d+)\s+(\d+)$/) {
+            $result->{$1}->{disk} = $2 * 1024;
+            $result->{$1}->{maxdisk} = $3 * 1024;
+        }
+    };
+
+    my $cmd = ['vzlist', '-a', '-H', '-o', 'ctid,diskspace,diskspace.h'];
+
+    eval {
+        run_command($cmd, outfunc => $diskparser);
+    };
+    my $err = $@;
+    syslog('err', $err) if $err;
+
+    return $result;
 };
 
 my $last_proc_vestat = {};
@@ -225,86 +247,78 @@ sub vmstatus {
     my $cpucount = $cpuinfo->{cpus} || 1;
 
     foreach my $vmid (keys %$list) {
-	next if $opt_vmid && ($vmid ne $opt_vmid);
+    	next if $opt_vmid && ($vmid ne $opt_vmid);
 
-	my $d = $list->{$vmid};
-	$d->{status} = 'stopped';
+    	my $d = $list->{$vmid};
+    	$d->{status} = 'stopped';
 
-	my $cfspath = cfs_config_path($vmid);
-	if (my $conf = PVE::Cluster::cfs_read_file($cfspath)) {
-	    $d->{name} = $conf->{hostname}->{value} || "CT$vmid";
-	    $d->{name} =~ s/[\s]//g;
+    	my $cfspath = cfs_config_path($vmid);
+    	if (my $conf = PVE::Cluster::cfs_read_file($cfspath)) {
+    	    $d->{name} = $conf->{hostname}->{value} || "CT$vmid";
+    	    $d->{name} =~ s/[\s]//g;
 
-	    $d->{cpus} = $conf->{cpus}->{value} || 1;
-	    $d->{cpus} = $cpucount if $d->{cpus} > $cpucount;
+    	    $d->{cpus} = $conf->{cpus}->{value} || 1;
+    	    $d->{cpus} = $cpucount if $d->{cpus} > $cpucount;
 
-	    $d->{disk} = 0;
-	    $d->{maxdisk} = int($conf->{diskspace}->{bar} * 1024);
+    	    $d->{disk} = 0;
+    	    $d->{maxdisk} = int($conf->{diskspace}->{bar} * 1024);
 
-	    $d->{mem} = 0;
-	    $d->{swap} = 0;
-	    
-	    ($d->{maxmem}, $d->{maxswap}) = ovz_config_extract_mem_swap($conf);
+    	    $d->{mem} = 0;
+    	    $d->{swap} = 0;
+    	    
+    	    ($d->{maxmem}, $d->{maxswap}) = ovz_config_extract_mem_swap($conf);
 
-	    $d->{nproc} = 0;
-	    $d->{failcnt} = 0;
+    	    $d->{nproc} = 0;
+    	    $d->{failcnt} = 0;
 
-	    $d->{uptime} = 0;
-	    $d->{cpu} = 0;
+    	    $d->{uptime} = 0;
+    	    $d->{cpu} = 0;
 
-	    $d->{netout} = 0;
-	    $d->{netin} = 0;
+    	    $d->{netout} = 0;
+    	    $d->{netin} = 0;
 
-	    $d->{pktsout} = 0;
-	    $d->{pktsin} = 0;
+    	    $d->{pktsout} = 0;
+    	    $d->{pktsin} = 0;
 
-	    $d->{diskread} = 0;
-	    $d->{diskwrite} = 0;
+    	    $d->{diskread} = 0;
+    	    $d->{diskwrite} = 0;
 
-	    if (my $ip = $conf->{ip_address}->{value}) {
-		$ip =~ s/,;/ /g;
-		$d->{ip} = (split(/\s+/, $ip))[0];
-	    } else {
-		$d->{ip} = '-';
-	    }
+    	    if (my $ip = $conf->{ip_address}->{value}) {
+    		  $ip =~ s/,;/ /g;
+    		  $d->{ip} = (split(/\s+/, $ip))[0];
+    	    } else {
+    		  $d->{ip} = '-';
+    	    }
 
-	    $d->{status} = 'mounted' if check_mounted($conf, $vmid);
+    	    $d->{status} = 'mounted' if check_mounted($conf, $vmid);
 
-	} else {
-	    delete $list->{$vmid};
-	}
+    	} else {
+    	    delete $list->{$vmid};
+    	}
     }
 
     my $maxpages = ($res_unlimited / 4096);
     my $ubchash = read_user_beancounters();
     foreach my $vmid (keys %$ubchash) {
-	my $d = $list->{$vmid};
-	my $ubc = $ubchash->{$vmid};
-	if ($d && defined($d->{status}) && $ubc) {
-	    $d->{failcnt} = $ubc->{failcntsum};
-	    $d->{mem} = $ubc->{physpages}->{held} * 4096;
-	    if ($ubc->{swappages}->{held} < $maxpages) {
-		$d->{swap} = $ubc->{swappages}->{held} * 4096
-	    }
-	    $d->{nproc} = $ubc->{numproc}->{held};
-	}
+        my $d = $list->{$vmid};
+        my $ubc = $ubchash->{$vmid};
+        if ($d && defined($d->{status}) && $ubc) {
+            $d->{failcnt} = $ubc->{failcntsum};
+            $d->{mem} = $ubc->{physpages}->{held} * 4096;
+            if ($ubc->{swappages}->{held} < $maxpages) {
+	           $d->{swap} = $ubc->{swappages}->{held} * 4096
+            }
+            $d->{nproc} = $ubc->{numproc}->{held};
+	   }
     }
 
-    if (my $fh = IO::File->new ("/proc/vz/vzquota", "r")) {
-	while (defined (my $line = <$fh>)) {
-	    if ($line =~ m|^(\d+):\s+\S+/private/\d+$|) {
-		my $vmid = $1;
-		my $d = $list->{$vmid};
-		if ($d && defined($d->{status})) {
-		    $line = <$fh>;
-		    if ($line =~ m|^\s*1k-blocks\s+(\d+)\s+(\d+)\s|) {
-			$d->{disk} = int ($1 * 1024);
-			$d->{maxdisk} = int ($2 * 1024);
-		    }
-		}
-	    }
-	}
-	close($fh);
+    my $diskusageshash = read_diskusages();
+
+    foreach my $vmid (keys %$diskusageshash) {
+        my $d = $list->{$vmid};
+        my $diskusage = $diskusageshash->{$vmid};
+        $d->{disk} = $diskusage->{disk};
+        $d->{maxdisk} = $diskusage->{maxdisk};
     }
 
     # Note: OpenVZ does not use POSIX::_SC_CLK_TCK
@@ -312,50 +326,50 @@ sub vmstatus {
 
     # see http://wiki.openvz.org/Vestat
     if (my $fh = new IO::File ("/proc/vz/vestat", "r")) {
-	while (defined (my $line = <$fh>)) {
-	    if ($line =~ m/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+/) {
-		my $vmid = $1;
-		my $user = $2;
-		my $nice = $3;
-		my $system = $4;
-		my $ut = $5;
-		my $sum = $8*$cpucount; # uptime in jiffies * cpus = available jiffies
-		my $used = $9; # used time in jiffies
+    	while (defined (my $line = <$fh>)) {
+    	    if ($line =~ m/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+/) {
+        		my $vmid = $1;
+        		my $user = $2;
+        		my $nice = $3;
+        		my $system = $4;
+        		my $ut = $5;
+        		my $sum = $8*$cpucount; # uptime in jiffies * cpus = available jiffies
+        		my $used = $9; # used time in jiffies
 
-		my $uptime = int ($ut / $hz);
+        		my $uptime = int ($ut / $hz);
 
-		my $d = $list->{$vmid};
-		next if !($d && defined($d->{status}));
+        		my $d = $list->{$vmid};
+        		next if !($d && defined($d->{status}));
 
-		$d->{status} = 'running';
-		$d->{uptime} = $uptime;
+        		$d->{status} = 'running';
+        		$d->{uptime} = $uptime;
 
-		if (!defined ($last_proc_vestat->{$vmid}) ||
-		    ($last_proc_vestat->{$vmid}->{sum} > $sum)) {
-		    $last_proc_vestat->{$vmid} = { used => 0, sum => 0, cpu => 0 };
-		}
+        		if (!defined ($last_proc_vestat->{$vmid}) ||
+        		    ($last_proc_vestat->{$vmid}->{sum} > $sum)) {
+        		    $last_proc_vestat->{$vmid} = { used => 0, sum => 0, cpu => 0 };
+        		}
 
-		my $diff = $sum - $last_proc_vestat->{$vmid}->{sum};
+        		my $diff = $sum - $last_proc_vestat->{$vmid}->{sum};
 
-		if ($diff > 1000) { # don't update too often
-		    my $useddiff = $used - $last_proc_vestat->{$vmid}->{used};
-		    my $cpu = (($useddiff/$diff) * $cpucount) / $d->{cpus};
-		    $last_proc_vestat->{$vmid}->{sum} = $sum;
-		    $last_proc_vestat->{$vmid}->{used} = $used;
-		    $last_proc_vestat->{$vmid}->{cpu} = $d->{cpu} = $cpu;
-		} else {
-		    $d->{cpu} = $last_proc_vestat->{$vmid}->{cpu};
-		}
-	    }
-	}
-	close($fh);
+        		if ($diff > 1000) { # don't update too often
+        		    my $useddiff = $used - $last_proc_vestat->{$vmid}->{used};
+        		    my $cpu = (($useddiff/$diff) * $cpucount) / $d->{cpus};
+        		    $last_proc_vestat->{$vmid}->{sum} = $sum;
+        		    $last_proc_vestat->{$vmid}->{used} = $used;
+        		    $last_proc_vestat->{$vmid}->{cpu} = $d->{cpu} = $cpu;
+        		} else {
+        		    $d->{cpu} = $last_proc_vestat->{$vmid}->{cpu};
+        		}
+    	    }
+    	}
+    	close($fh);
     }
 
     foreach my $vmid (keys %$list) {
-	my $d = $list->{$vmid};
-	next if !$d || !$d->{status} || $d->{status} ne 'running';
-	($d->{netin}, $d->{netout}, $d->{pktsin}, $d->{pktsout}) = read_container_network_usage($vmid);
-	($d->{diskread}, $d->{diskwrite}) = read_container_blkio_stat($vmid); 
+    	my $d = $list->{$vmid};
+    	next if !$d || !$d->{status} || $d->{status} ne 'running';
+    	($d->{netin}, $d->{netout}, $d->{pktsin}, $d->{pktsout}) = read_container_network_usage($vmid);
+    	($d->{diskread}, $d->{diskwrite}) = read_container_ioacct_stat($vmid); 
     }
 
     return $list;
