@@ -46,6 +46,14 @@ Ext.define('PVE.openvz.StatusView', {
 	    return text;
 	};
 
+    var render_disk = function(value, metaData, record, rowIndex, colIndex, store) {
+        var maxdisk = me.getObjectValue('maxdisk', 0);
+        var per = (value / maxdisk)*100;
+        var text = "<div>" + PVE.Utils.totalText + ": " + PVE.Utils.format_size(maxdisk) + "</div>" + 
+        "<div>" + PVE.Utils.usedText + ": " + PVE.Utils.format_size(value) + "</div>";
+        return text;
+    };
+
 	var render_status = function(value, metaData, record, rowIndex, colIndex, store) {
 	    var failcnt = me.getObjectValue('failcnt', 0);
 	    if (failcnt > 0) {
@@ -64,13 +72,15 @@ Ext.define('PVE.openvz.StatusView', {
 	    maxmem: { visible: false },
 	    swap: { header: gettext('VSwap usage'), required: true,  renderer: render_swap },
 	    maxswap: { visible: false },
+        disk: { header: gettext('Disk usage'), required: true,  renderer: render_disk },
+        maxdisk: { visible: false },    
 	    uptime: { header: gettext('Uptime'), required: true, renderer: PVE.Utils.render_uptime },
 	    ha: { header: gettext('Managed by HA'), required: true, renderer: PVE.Utils.format_boolean }
 	};
 
 	Ext.applyIf(me, {
 	    cwidth1: 150,
-	    height: 200,
+	    height: 235,
 	    rows: rows
 	});
 
