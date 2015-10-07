@@ -181,6 +181,14 @@ Ext.define('PVE.openvz.Config', {
 	    });
 	}
 
+	if (caps.vms['VM.Snapshot']) {
+	    me.items.push({
+		title: gettext('Snapshots'),
+		xtype: 'pveOpenVZSnapshotTree',
+		itemId: 'snapshot'
+	    });
+	}
+
 	if (caps.vms['VM.Console']) {
 	    me.items.push([
 		{

@@ -149,6 +149,8 @@ JSSRC= 				                 	\
 	openvz/BeanCounterGrid.js			\
 	openvz/Config.js				\
 	openvz/CreateWizard.js				\
+	openvz/SnapshotTree.js				\
+	openvz/SnapshotWindow.js			\
 	pool/StatusView.js				\
 	pool/Summary.js					\
 	pool/Config.js					\
