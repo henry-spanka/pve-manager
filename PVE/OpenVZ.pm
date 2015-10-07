@@ -1377,7 +1377,7 @@ sub set_rootpasswd {
 sub getSnapshots {
     my $vmid = shift;
 
-    my $cmd = ['vzctl', 'snapshot-list', $vmid, '-H', '-o', 'parent_uuid,current,uuid,date,name']; # Just to be sure, OpenVZ does change the default order
+    my $cmd = ['vzctl', '--skiplock', 'snapshot-list', $vmid, '-H', '-o', 'parent_uuid,current,uuid,date,name']; # Just to be sure, OpenVZ does change the default order
     my $snapshots = {};
 
     eval {
