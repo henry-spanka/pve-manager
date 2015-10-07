@@ -3,6 +3,7 @@ package PVE::OpenVZ;
 use strict;
 use LockFile::Simple;
 use File::stat qw();
+use File::Path qw(remove_tree);
 use POSIX qw (LONG_MAX);
 use IO::Dir;
 use IO::File;
@@ -124,13 +125,28 @@ sub get_disk_quota {
     return $disk_quota;
 }
 
-sub removeExtendedAttributes {
+sub deleteContainerFiles {
     my ($conf, $vmid) = @_;
-	
-	if($conf && $vmid) {
-		my $privatedir = get_privatedir($conf, $vmid);
-		system("/usr/bin/chattr -ia -R ${privatedir} >/dev/null 2>&1") if -d $privatedir;
-	}
+
+    eval {
+        my $rootdir = get_rootdir($conf, $vmid);
+
+        die "invalid root dir\n" if !$rootdir || !-d $rootdir;
+
+        my $cmd = ['chattr', '-ia', '-R', $rootdir];
+
+        # Ignore any errors for this command
+        eval {
+            run_command($cmd, output => '/dev/null 2&>1', errfunc => sub {}, outfunc => sub {});
+        };
+
+        remove_tree($rootdir, {keep_root => 1, error => \my $errors} );
+        die "unable to remove container files\n" if @$errors;
+    };
+    if (my $err = $@) {
+        die $err;
+    }
+
 }
 
 sub read_user_beancounters {
@@ -1441,5 +1457,71 @@ sub switchSnapshot {
     };
     if (my $err = $@) {
         die "Unable to switch snapshot: $err";
+    }
+}
+
+sub mountContainer {
+    my ($vmid, $skiplock) = @_;
+
+    my $cmd;
+
+    if($skiplock) {
+        $cmd = ['vzctl', '--skiplock', 'mount', $vmid];
+    } else {
+        $cmd = ['vzctl', 'mount', $vmid];
+    }
+
+    eval {
+        run_command($cmd);
+    };
+    if (my $err = $@) {
+        die "Unable to mount container";
+    }
+}
+
+sub umountContainer {
+    my ($vmid, $skiplock) = @_;
+
+    my $cmd;
+
+    if($skiplock) {
+        $cmd = ['vzctl', '--skiplock', 'umount', $vmid];
+    } else {
+        $cmd = ['vzctl', 'umount', $vmid];
+    }
+
+    eval {
+        run_command($cmd);
+    };
+    if (my $err = $@) {
+        die "Unable to umount container";
+    }
+}
+
+sub reinstallContainer {
+    my ($vmid, $archive) = @_;
+
+    eval {
+        my $conf = load_config($vmid);
+        my $root = get_rootdir($conf, $vmid);
+
+        die "invalid root dir\n" if !$root || !-d $root;
+        die "invalid archive\n" if !$archive;
+
+        mountContainer($vmid, 1);
+
+        print "Deleting container files\n";
+        deleteContainerFiles($conf, $vmid);
+
+        my $cmd = ['tar', 'xfz', $archive, '-C', $root];
+
+        print "Unpacking template\n";
+        run_command($cmd);
+
+        umountContainer($vmid, 1);
+    };
+    if (my $err = $@) {
+        umountContainer($vmid, 1);
+        die $err;
     }
 }

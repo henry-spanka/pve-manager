@@ -208,45 +208,6 @@ my $restore_openvz = sub {
     return $conf;
 };
 
-my $reinstall_openvz = sub {
-    my ($private, $archive, $vmid) = @_;
-
-    my $vzconf = PVE::OpenVZ::read_global_vz_config();
-    my $conffile = PVE::OpenVZ::config_file($vmid);
-    my $cfgdir = dirname($conffile);
-
-    my $root = $vzconf->{rootdir};
-    $root =~ s/\$VEID/$vmid/;
-
-    print "overwriting private and root directories.\n";
-
-    my $conf;
-
-    eval {
-		my $conf = PVE::OpenVZ::load_config($vmid);
-		PVE::OpenVZ::removeExtendedAttributes($conf, $vmid);
-		rmtree $private if -d $private;
-	
-		my $cmd = ['vzctl', '--skiplock', 'create', $vmid,
-		   '--ostemplate', $archive, '--private', $private];
-		run_command($cmd);
-    };
-
-    my $err = $@;
-
-    if ($err) {
-		rmtree $private;
-		rmtree $root;
-		unlink $conffile;
-		foreach my $s (PVE::OpenVZ::SCRIPT_EXT) {
-			unlink "$cfgdir/${vmid}.$s";
-		}
-		die $err;
-    }
-
-    return $conf;
-};
-
 # create_vm is also used by vzrestore
 __PACKAGE__->register_method({
     name => 'create_vm', 
@@ -960,21 +921,13 @@ __PACKAGE__->register_method({
 		
 		PVE::Cluster::check_cfs_quorum();
 		
-		&$reinstall_openvz($privatedir, $archive, $vmid);
+		PVE::OpenVZ::reinstallContainer($vmid, $archive);
 		
 		# is this really needed?
 		my $cmd = ['vzctl', '--skiplock', '--quiet', 'set', $vmid, 
 			   '--applyconfig_map', 'name', '--save'];
 		run_command($cmd);
 		
-		$conf = PVE::OpenVZ::load_config($vmid);
-		
-		# and initialize quota
-		my $disk_quota = $conf->{disk_quota}->{value};
-		if (!defined($disk_quota) || ($disk_quota != 0)) {
-		    $cmd = ['vzctl', '--skiplock', 'quotainit', $vmid];
-		    run_command($cmd);
-		}
 		# and setting root password
 		PVE::OpenVZ::set_rootpasswd($vmid, $password) 
 		    if defined($password);
