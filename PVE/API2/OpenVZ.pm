@@ -1845,7 +1845,7 @@ __PACKAGE__->register_method({
             skipsuspend => {
                 optional => 1,
                 type => 'boolean',
-                'description' => 'If a container is running, and skipsuspend option is not specified, a container is checkpointed and then restored, and CT memory dump becomes the part of snapshot.'
+                description => 'If a container is running, and skipsuspend option is not specified, a container is checkpointed and then restored, and CT memory dump becomes the part of snapshot.'
             }
         },
     },
