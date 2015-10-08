@@ -1414,10 +1414,14 @@ sub getSnapshots {
     return $snapshots;
 }
 
+sub generateUUID {
+    return Data::UUID->new->create_str();
+}
+
 sub createSnapshot {
     my ($vmid, $name, $skipsuspend, $uuid) = @_;
 
-    $uuid = Data::UUID->new->create_str() if !$uuid;
+    $uuid = generateUUID() if !$uuid;
 
     my $cmd = ['vzctl', 'snapshot', $vmid, '--id', $uuid];
 

@@ -103,12 +103,6 @@ sub snapshot {
     die "internal error"; # implement in subclass
 }
 
-sub copy_data_phase2 {
-    my ($self, $task, $vmid) = @_;
-
-    die "internal error"; # implement in subclass
-}
-
 sub assemble {
     my ($self, $task, $vmid) = @_;
 
