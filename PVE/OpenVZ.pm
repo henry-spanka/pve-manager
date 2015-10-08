@@ -1351,7 +1351,7 @@ sub lock_container {
 sub vm_suspend {
     my ($vmid) = @_;
 
-    my $cmd = ['vzctl', 'chkpnt', $vmid];
+    my $cmd = ['vzctl', 'suspend', $vmid];
 
     eval { run_command($cmd); };
     if (my $err = $@) {
@@ -1363,7 +1363,7 @@ sub vm_suspend {
 sub vm_resume {
     my ($vmid) = @_;
 
-    my $cmd = ['vzctl', 'restore', $vmid];
+    my $cmd = ['vzctl', 'resume', $vmid];
 
     eval { run_command($cmd); };
     if (my $err = $@) {
