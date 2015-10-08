@@ -834,7 +834,6 @@ __PACKAGE__->register_method({
 	my $conf = PVE::OpenVZ::load_config($param->{vmid});
 
 	my $realcmd = sub {
-		PVE::OpenVZ::removeExtendedAttributes($conf, $vmid);
 	    my $cmd = ['vzctl', 'destroy', $vmid ];
 
 	    run_command($cmd);
