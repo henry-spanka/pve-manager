@@ -512,7 +512,7 @@ my $confdesc = {
     vm_overcommit => {
         optional => 1,
         minimum => 1,
-        type => 'float',
+        type => 'number',
         description => 'Set VM overcommitment value to float. If set, it is used to calculate privmmpages parameter in case it is not set explicitly. Default value is 0, meaning unlimited privvmpages.'
     },
 };
