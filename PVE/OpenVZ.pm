@@ -1529,3 +1529,22 @@ sub reinstallContainer {
         die $err;
     }
 }
+
+sub compactContainer {
+    my ($vmid, $skiplock) = @_;
+
+    my $cmd;
+
+    if($skiplock) {
+        $cmd = ['vzctl', '--skiplock', 'compact', $vmid];
+    } else {
+        $cmd = ['vzctl', 'compact', $vmid];
+    }
+
+    eval {
+        run_command($cmd);
+    };
+    if (my $err = $@) {
+        die $err;
+    }
+}

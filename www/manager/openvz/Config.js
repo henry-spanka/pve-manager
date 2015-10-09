@@ -114,6 +114,23 @@ Ext.define('PVE.openvz.Config', {
 	    }
 	});
 
+	var compactBtn = Ext.create('PVE.button.Button', {
+	    text: gettext('Compact'),
+	    disabled: !caps.vms['VM.Allocate'],
+	    dangerous: true,
+	    confirmMsg: Ext.String.format(gettext('Are you sure you want to compact VM {0}? This can take a long time'), vmid),
+	    handler: function() {
+			PVE.Utils.API2Request({
+			    url: base_url + '/compact',
+			    method: 'POST',
+			    waitMsgTarget: me,
+			    failure: function(response, opts) {
+					Ext.Msg.alert('Error', response.htmlStatus);
+			    }
+			});
+	    }
+	});
+
 	var vmname = me.pveSelNode.data.name;
 
 	var consoleBtn = Ext.create('PVE.button.ConsoleButton', {
@@ -130,7 +147,7 @@ Ext.define('PVE.openvz.Config', {
 	    title: Ext.String.format(gettext("Container {0} on node {1}"), descr, "'" + nodename + "'"),
 	    hstateid: 'ovztab',
 	    tbar: [ startBtn, shutdownBtn, umountBtn, stopBtn, removeBtn, 
-		    migrateBtn, reinstallBtn, consoleBtn ],
+		    migrateBtn, reinstallBtn, compactBtn, consoleBtn ],
 	    defaults: { statusStore: me.statusStore },
 	    items: [
 		{
@@ -227,6 +244,7 @@ Ext.define('PVE.openvz.Config', {
 	    stopBtn.setDisabled(!caps.vms['VM.PowerMgmt'] || status === 'stopped');
 	    removeBtn.setDisabled(!caps.vms['VM.Allocate'] || status !== 'stopped');
 		reinstallBtn.setDisabled(!caps.vms['VM.Allocate'] || status !== 'stopped');
+		compactBtn.setDisabled(!caps.vms['VM.Allocate']);
 
 	    if (status === 'mounted') {
 		umountBtn.setDisabled(false);

@@ -571,7 +571,8 @@ __PACKAGE__->register_method({
 	    { subdir => 'firewall' },
 		{ subdir => 'reinstall' },
 		{ subdir => 'database' },
-        { subdir => 'snapshot' }
+        { subdir => 'snapshot' },
+        { subdir => 'compact'}
 	    ];
 	
 	return $res;
@@ -1977,6 +1978,47 @@ __PACKAGE__->register_method({
         };
 
         return $rpcenv->fork_worker('vzsnapshotswitch', $vmid, $authuser, $realcmd);
+    }
+});
+
+__PACKAGE__->register_method({
+    name => 'compact',
+    path => '{vmid}/compact',
+    method => 'POST',
+    protected => 1,
+    proxyto => 'node',
+    description => "Compact container image. This only makes sense for ploop layout.",
+    permissions => {
+        check => ['perm', '/vms/{vmid}', [ 'VM.Allocate' ]],
+    },
+    parameters => {
+        additionalProperties => 0,
+        properties => {
+            node => get_standard_option('pve-node'),
+            vmid => get_standard_option('pve-vmid'),
+        },
+    },
+    returns => {
+        type => 'string',
+        description => "the task ID.",
+    },
+    code => sub {
+        my ($param) = @_;
+
+        my $rpcenv = PVE::RPCEnvironment::get();
+
+        my $authuser = $rpcenv->get_user();
+
+        my $node = extract_param($param, 'node');
+
+        my $vmid = extract_param($param, 'vmid');
+
+        my $realcmd = sub {
+            PVE::Cluster::log_msg('info', $authuser, "compact CT $vmid");
+            PVE::OpenVZ::compactContainer($vmid);
+        };
+
+        return $rpcenv->fork_worker('vzcompact', $vmid, $authuser, $realcmd);
     }
 });
 
