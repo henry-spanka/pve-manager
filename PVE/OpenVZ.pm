@@ -1530,7 +1530,7 @@ sub reinstallContainer {
         print "Deleting container files\n";
         deleteContainerFiles($conf, $vmid);
 
-        my $cmd = ['tar', 'xfz', $archive, '-C', $root];
+        my $cmd = ['tar', 'xpfz', $archive, '-C', $root];
 
         print "Unpacking template\n";
         run_command($cmd);
