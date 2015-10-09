@@ -136,7 +136,7 @@ sub archive {
 
     my $taropts = '--totals --sparse --numeric-owner --one-file-system';
 
-    my $cmd = "tar cpf - -C $task->{privatedir} ${taropts} ./"; 
+    my $cmd = "tar cvpf - -C $task->{privatedir} ${taropts} ./"; 
 
     $cmd .= "|cstream -t ${bwl}" if $opts->{bwlimit};
     $cmd .= "|$comp" if $comp;
