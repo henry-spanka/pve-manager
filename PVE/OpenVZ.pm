@@ -1599,7 +1599,7 @@ sub restoreContainerBackup {
         mkpath $private || die "unable to create private dir '$private'";
         mkpath $root || die "unable to create root dir '$root'";
         
-        my $cmd = ['tar', 'xpf', $archive, '--totals', '--sparse', '-C', $private];
+        my $cmd = ['tar', 'xpvf', $archive, '--totals', '--sparse', '-C', $private];
 
         if ($archive eq '-') {
             print "extracting archive from STDIN\n";
