@@ -119,95 +119,6 @@ __PACKAGE__->register_method({
   
     }});
 
-my $restore_openvz = sub {
-    my ($private, $archive, $vmid, $force) = @_;
-
-    my $vzconf = PVE::OpenVZ::read_global_vz_config();
-    my $conffile = PVE::OpenVZ::config_file($vmid);
-    my $cfgdir = dirname($conffile);
-
-    my $root = $vzconf->{rootdir};
-    $root =~ s/\$VEID/$vmid/;
-
-    print "you choose to force overwriting VPS config file, private and root directories.\n" if $force;
-
-    die "unable to create CT $vmid - container already exists\n"
-	if !$force && -f $conffile;
- 
-    die "unable to create CT $vmid - directory '$private' already exists\n"
-	if !$force && -d $private;
-   
-    die "unable to create CT $vmid - directory '$root' already exists\n"
-	if !$force && -d $root;
-
-    my $conf;
-
-    eval {
-	if ($force && -f $conffile) {
-	    my $conf = PVE::OpenVZ::load_config($vmid);
-		
-		PVE::OpenVZ::removeExtendedAttributes($conf, $vmid);
-
-	    my $oldprivate = PVE::OpenVZ::get_privatedir($conf, $vmid);
-	    rmtree $oldprivate if -d $oldprivate;
-	   
-	    my $oldroot = $conf->{ve_root} ? $conf->{ve_root}->{value} : $root;
-	    rmtree $oldroot if -d $oldroot;
-	};
-
-	mkpath $private || die "unable to create private dir '$private'";
-	mkpath $root || die "unable to create root dir '$root'";
-	
-	my $cmd = ['tar', 'xpf', $archive, '--totals', '--sparse', '-C', $private];
-
-	if ($archive eq '-') {
-	    print "extracting archive from STDIN\n";
-	    run_command($cmd, input => "<&STDIN");
-	} else {
-	    print "extracting archive '$archive'\n";
-	    run_command($cmd);
-	}
-
-	my $backup_cfg = "$private/etc/vzdump/vps.conf";
-	if (-f $backup_cfg) {
-	    print "restore configuration to '$conffile'\n";
-
-	    my $conf = PVE::Tools::file_get_contents($backup_cfg);
-
-	    $conf =~ s/VE_ROOT=.*/VE_ROOT=\"$root\"/;
-	    $conf =~ s/VE_PRIVATE=.*/VE_PRIVATE=\"$private\"/;
-	    $conf =~ s/host_ifname=veth[0-9]+\./host_ifname=veth${vmid}\./g;
-
-	    PVE::Tools::file_set_contents($conffile, $conf);
-		
-	    foreach my $s (PVE::OpenVZ::SCRIPT_EXT) {
-		my $tfn = "$cfgdir/${vmid}.$s";
-		my $sfn = "$private/etc/vzdump/vps.$s";
-		if (-f $sfn) {
-		    my $sc = PVE::Tools::file_get_contents($sfn);
-		    PVE::Tools::file_set_contents($tfn, $sc);
-		}
-	    }
-	}
-
-	rmtree "$private/etc/vzdump";
-    };
-
-    my $err = $@;
-
-    if ($err) {
-	rmtree $private;
-	rmtree $root;
-	unlink $conffile;
-	foreach my $s (PVE::OpenVZ::SCRIPT_EXT) {
-	    unlink "$cfgdir/${vmid}.$s";
-	}
-	die $err;
-    }
-
-    return $conf;
-};
-
 # create_vm is also used by vzrestore
 __PACKAGE__->register_method({
     name => 'create_vm', 
@@ -371,7 +282,7 @@ __PACKAGE__->register_method({
 	    PVE::Cluster::check_cfs_quorum();
 
 	    if ($param->{restore}) {
-    		&$restore_openvz($private, $archive, $vmid, $param->{force});
+            PVE::OpenVZ::restoreContainerBackup($vmid, $archive, $private, $param->{force});
 
     		# is this really needed?
     		my $cmd = ['vzctl', '--skiplock', '--quiet', 'set', $vmid, 

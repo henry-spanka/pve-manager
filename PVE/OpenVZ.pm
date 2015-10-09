@@ -3,7 +3,8 @@ package PVE::OpenVZ;
 use strict;
 use LockFile::Simple;
 use File::stat qw();
-use File::Path qw(remove_tree);
+use File::Basename qw(dirname);
+use File::Path qw(remove_tree rmtree mkpath);
 use POSIX qw (LONG_MAX);
 use IO::Dir;
 use IO::File;
@@ -1439,9 +1440,15 @@ sub createSnapshot {
 }
 
 sub deleteSnapshot {
-    my ($vmid, $uuid) = @_;
+    my ($vmid, $uuid, $skiplock) = @_;
 
-    my $cmd = ['vzctl', 'snapshot-delete', $vmid, '--id', $uuid];
+    my $cmd;
+
+    if ($skiplock) {
+        $cmd = ['vzctl', '--skiplock', 'snapshot-delete', $vmid, '--id', $uuid];
+    } else {
+        $cmd = ['vzctl', 'snapshot-delete', $vmid, '--id', $uuid];
+    }
 
     eval {
         run_command($cmd);
@@ -1452,9 +1459,15 @@ sub deleteSnapshot {
 }
 
 sub switchSnapshot {
-    my ($vmid, $uuid) = @_;
+    my ($vmid, $uuid, $skiplock) = @_;
 
-    my $cmd = ['vzctl', 'snapshot-switch', $vmid, '--id', $uuid];
+    my $cmd;
+
+    if ($skiplock) {
+        $cmd = ['vzctl', '--skiplock', 'snapshot-switch', $vmid, '--id', $uuid];
+    } else {
+        $cmd = ['vzctl', 'snapshot-switch', $vmid, '--id', $uuid];
+    }
 
     eval {
         run_command($cmd);
@@ -1547,4 +1560,118 @@ sub compactContainer {
     if (my $err = $@) {
         die $err;
     }
+}
+
+sub restoreContainerBackup {
+    my ($vmid, $archive, $private, $force) = @_;
+
+    my $vzconf = PVE::OpenVZ::read_global_vz_config();
+    my $conffile = PVE::OpenVZ::config_file($vmid);
+    my $cfgdir = dirname($conffile);
+
+    my $root = $vzconf->{rootdir};
+    $root =~ s/\$VEID/${vmid}/;
+
+    print "you choose to force overwriting VPS config file, private and root directories.\n" if $force;
+
+    die "unable to create CT ${vmid} - container already exists\n"
+    if !$force && -f $conffile;
+ 
+    die "unable to create CT ${vmid} - directory '${private}' already exists\n"
+    if !$force && -d $private;
+   
+    die "unable to create CT ${vmid} - directory '${root}' already exists\n"
+    if !$force && -d $root;
+
+    my $conf;
+
+    eval {
+        if ($force && -f $conffile) {
+            my $conf = PVE::OpenVZ::load_config($vmid);
+
+            my $oldprivate = PVE::OpenVZ::get_privatedir($conf, $vmid);
+            rmtree $oldprivate if -d $oldprivate;
+           
+            my $oldroot = $conf->{ve_root} ? $conf->{ve_root}->{value} : $root;
+            rmtree $oldroot if -d $oldroot;
+        }
+
+        mkpath $private || die "unable to create private dir '$private'";
+        mkpath $root || die "unable to create root dir '$root'";
+        
+        my $cmd = ['tar', 'xpf', $archive, '--totals', '--sparse', '-C', $private];
+
+        if ($archive eq '-') {
+            print "extracting archive from STDIN\n";
+            run_command($cmd, input => "<&STDIN");
+        } else {
+            print "extracting archive '$archive'\n";
+            run_command($cmd);
+        }
+
+        my $backup_cfg = "${private}/vzdump/vps.conf";
+        if (-f $backup_cfg) {
+            print "restore configuration to '$conffile'\n";
+
+            my $conf = PVE::Tools::file_get_contents($backup_cfg);
+
+            $conf =~ s/VE_ROOT=.*/VE_ROOT=\"$root\"/;
+            $conf =~ s/VE_PRIVATE=.*/VE_PRIVATE=\"$private\"/;
+            $conf =~ s/host_ifname=veth[0-9]+\./host_ifname=veth${vmid}\./g;
+
+            PVE::Tools::file_set_contents($conffile, $conf);
+            
+            foreach my $s (PVE::OpenVZ::SCRIPT_EXT) {
+                my $tfn = "${cfgdir}/${vmid}.$s";
+                my $sfn = "${private}/vzdump/vps.${s}";
+                if (-f $sfn) {
+                    my $sc = PVE::Tools::file_get_contents($sfn);
+                    PVE::Tools::file_set_contents($tfn, $sc);
+                }
+            }
+        } else {
+            die "VPS Config file does not exists" if !-f $conffile;
+        }
+
+        my $snapshotcfg = "${private}/vzdump/snapshot.uuid";
+
+        if (-f $snapshotcfg) {
+            my $snapshotuuid = PVE::Tools::file_get_contents($snapshotcfg);
+
+            if ($snapshotuuid) {
+                my $validuuid = getValidUUID($snapshotuuid);
+                switchSnapshot($vmid, $validuuid, 1);
+                deleteSnapshot($vmid, $validuuid, 1);
+            }
+        }
+
+        rmtree "${private}/vzdump";
+    };
+
+    my $err = $@;
+
+    if ($err) {
+        rmtree $private;
+        rmtree $root;
+        unlink $conffile;
+        foreach my $s (PVE::OpenVZ::SCRIPT_EXT) {
+            unlink "${cfgdir}/${vmid}.${s}";
+        }
+        die $err;
+    }
+
+    return $conf;
+
+}
+
+sub getValidUUID {
+    my $uuid = shift;
+
+    my $string;
+
+    $uuid =~ /\A(.*)\z/s or die "Invalid UUID"; $string = $1; 
+
+    $string =~ /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/ or die "Invalid UUID";
+
+    return $string;
 }
