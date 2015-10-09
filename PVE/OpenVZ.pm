@@ -1596,7 +1596,7 @@ sub restoreContainerBackup {
             rmtree $oldroot if -d $oldroot;
         }
 
-        sleep(1000); # Just sleep to be sure IO has been flushed
+        sleep(1); # Just sleep to be sure IO has been flushed
 
         mkpath $private || die "unable to create private dir '$private'";
         mkpath $root || die "unable to create root dir '$root'";

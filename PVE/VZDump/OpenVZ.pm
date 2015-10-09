@@ -141,7 +141,7 @@ sub archive {
     $cmd .= "|cstream -t ${bwl}" if $opts->{bwlimit};
     $cmd .= "|$comp" if $comp;
 
-    sleep(1000); # Just sleep to be sure IO has been flushed
+    sleep(1); # Just sleep to be sure IO has been flushed
 
     if ($opts->{stdout}) {
     $self->cmd ($cmd, output => ">&=" . fileno($opts->{stdout}));
@@ -153,7 +153,7 @@ sub archive {
 sub cleanup {
     my ($self, $task, $vmid) = @_;
 
-    sleep(1000); # Just sleep to be sure IO has been flushed
+    sleep(1); # Just sleep to be sure IO has been flushed
 
     if ($task->{cleanup}->{vzdump}) {
         my $dir = "$task->{privatedir}/vzdump";
