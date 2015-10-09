@@ -565,7 +565,6 @@ __PACKAGE__->register_method({
 	    { subdir => 'vncproxy' },
 	    { subdir => 'spiceproxy' },
 	    { subdir => 'migrate' },
-	    { subdir => 'initlog' },
 	    { subdir => 'rrd' },
 	    { subdir => 'rrddata' },
 	    { subdir => 'firewall' },
@@ -663,70 +662,6 @@ __PACKAGE__->register_method({
 
 	return PVE::Cluster::create_rrd_data(
 	    "pve2-vm/$param->{vmid}", $param->{timeframe}, $param->{cf});
-    }});
-
-__PACKAGE__->register_method({
-    name => 'initlog', 
-    path => '{vmid}/initlog', 
-    method => 'GET',
-    protected => 1,
-    proxyto => 'node',
-    permissions => {
-	check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
-    },
-    description => "Read init log.",
-    parameters => {
-    	additionalProperties => 0,
-	properties => {
-	    node => get_standard_option('pve-node'),
-	    vmid => get_standard_option('pve-vmid'),
-	    start => {
-		type => 'integer',
-		minimum => 0,
-		optional => 1,
-	    },
-	    limit => {
-		type => 'integer',
-		minimum => 0,
-		optional => 1,
-	    },
-	},
-    },
-    returns => {
-	type => 'array',
-	items => { 
-	    type => "object",
-	    properties => {
-		n => {
-		  description=>  "Line number",
-		  type=> 'integer',
-		},
-		t => {
-		  description=>  "Line text",
-		  type => 'string',
-		}
-	    }
-	}
-    },
-    code => sub {
-	my ($param) = @_;
-
-	my $rpcenv = PVE::RPCEnvironment::get();
-	my $authuser = $rpcenv->get_user();
-
-	my $vmid = $param->{vmid};
-
-	my $conf = PVE::OpenVZ::load_config($vmid);
-
-	my $privatedir = PVE::OpenVZ::get_privatedir($conf, $vmid);
-
-	my $logfn = "$privatedir/var/log/init.log";
-
-	my ($count, $lines) = PVE::Tools::dump_logfile($logfn, $param->{start}, $param->{limit});
-
-	$rpcenv->set_result_attrib('total', $count);
-	    
-	return $lines; 
     }});
 
 __PACKAGE__->register_method({
