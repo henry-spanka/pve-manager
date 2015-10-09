@@ -164,7 +164,10 @@ sub cleanup {
     }
 
     if ($task->{cleanup}->{snapshot}) {
-        $self->cmd (['vzctl', '--skiplock', 'snapshot-delete', $vmid, '--id', $task->{snapuuid}]);
+        eval {
+            $self->cmd (['vzctl', '--skiplock', 'snapshot-delete', $vmid, '--id', $task->{snapuuid}]);
+        };
+        $self->logerr ($@) if $@;
     }
 }
 
