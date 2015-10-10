@@ -424,7 +424,7 @@ my $confdesc = {
 	optional => 1,
 	type => 'integer',
 	description => "Absolute cpu maximum limit for a container (percent)",
-	minimum => 1,
+	minimum => 0,
 	default => 100,
     },
     memory => {
