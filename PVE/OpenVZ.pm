@@ -290,6 +290,7 @@ sub vmstatus {
 
     	    $d->{uptime} = 0;
     	    $d->{cpu} = 0;
+            $d->{cpulimit} = $conf->{cpulimit}->{value} || 0;
 
     	    $d->{netout} = 0;
     	    $d->{netin} = 0;
@@ -370,7 +371,12 @@ sub vmstatus {
 
         		if ($diff > 1000) { # don't update too often
         		    my $useddiff = $used - $last_proc_vestat->{$vmid}->{used};
-        		    my $cpu = (($useddiff/$diff) * $cpucount) / $d->{cpus};
+                    my $cpu;
+                    if ($d->{cpulimit} && $d->{cpulimit} > 0) {
+    		          $cpu = (($useddiff/$diff) * $cpucount) / $d->{cpus} / ($d->{cpulimit} / $d->{cpus} / 100);
+                    } else {
+                      $cpu = (($useddiff/$diff) * $cpucount) / $d->{cpus};
+                    }
         		    $last_proc_vestat->{$vmid}->{sum} = $sum;
         		    $last_proc_vestat->{$vmid}->{used} = $used;
         		    $last_proc_vestat->{$vmid}->{cpu} = $d->{cpu} = $cpu;
