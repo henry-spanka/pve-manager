@@ -51,6 +51,7 @@ sub prepare {
     die "Only ploop containers are supported" if $conf->{ve_layout}->{value} ne 'ploop';
 
 	$task->{privatedir} = PVE::OpenVZ::get_privatedir($conf, $vmid);
+    $task->{rootdir} = PVE::OpenVZ::get_rootdir($conf, $vmid);
     $task->{snapuuid} = PVE::OpenVZ::generateUUID();
 }
 
@@ -137,6 +138,11 @@ sub archive {
     my $bwl = $opts->{bwlimit}*1024; # bandwidth limit for cstream
 
     my $taropts = '--totals --sparse --numeric-owner --one-file-system';
+
+    if ($task->{mode} eq 'snapshot' || $task->{mode} eq 'suspend') {
+        my $ploopinfo = PVE::OpenVZ::getPloopInfo($vmid, $task->{privatedir}, $task->{rootdir});
+        $taropts = "${taropts} --exclude=$ploopinfo->{top_delta}";
+    }
 
     my $cmd = "tar cvpf - -C $task->{privatedir} ${taropts} ./"; 
 
