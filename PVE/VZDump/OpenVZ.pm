@@ -48,6 +48,8 @@ sub prepare {
 
     my $conf = PVE::OpenVZ::load_config($vmid);
 
+    die "Only ploop containers are supported" if $conf->{ve_layout}->{value} ne 'ploop';
+
 	$task->{privatedir} = PVE::OpenVZ::get_privatedir($conf, $vmid);
     $task->{snapuuid} = PVE::OpenVZ::generateUUID();
 }
