@@ -57,33 +57,112 @@ sub prepare {
 
     my $running = 0;
     if (PVE::OpenVZ::check_running($vmid)) {
-	die "cant migrate running container without --online\n" if !$online;
-	$running = 1;
+	   die "cant migrate running container without --online\n" if !$online;
+	   $running = 1;
     }
 
     # fixme: test if VM uses local resources
 
     # test ssh connection
     my $cmd = [ @{$self->{rem_ssh}}, '/bin/true' ];
-    eval { $self->cmd_quiet($cmd); };
+    eval {
+        $self->cmd_quiet($cmd);
+    };
     die "Can't connect to destination address using public key\n" if $@;
 
+    die "Only ploop containers are supported" if $conf->{ve_layout}->{value} ne 'ploop';
+    $cmd = [ @{$self->{rem_ssh}}, 'ploop', 'getdev' ];
+    eval {
+        $self->cmd_quiet($cmd);
+    };
+    die "Destionation node does not support ploop" if $@;
+
     if ($running) {
+    	# test if OpenVZ is running
+    	$cmd = [ @{$self->{rem_ssh}}, '/etc/init.d/vz status' ];
+    	eval {
+            $self->cmd_quiet($cmd);
+        };
+    	die "OpenVZ is not running on the target machine\n" if $@;
 
-	# test if OpenVZ is running
-	$cmd = [ @{$self->{rem_ssh}}, '/etc/init.d/vz status' ];
-	eval { $self->cmd_quiet($cmd); };
-	die "OpenVZ is not running on the target machine\n" if $@;
+    	# Check cpt props
+        $self->log('info', "Checking for CPT Version compability");
 
-	# test if CPT modules are loaded for online migration
-	die "vzcpt module is not loaded\n" if ! -f '/proc/cpt';
+        my $version;
 
-	$cmd = [ @{$self->{rem_ssh}}, 'test -f /proc/rst' ];
-	eval { $self->cmd_quiet($cmd); };
-	die "vzrst module is not loaded on the target machine\n" if $@;
+    	$cmd = ['vzcptcheck', 'version'];
+    	eval {
+            PVE::Tools::run_command($cmd, outfunc => sub {
+                my $line = shift;
+                if ($line =~ /^([\d]+)$/s) {
+                    $version = $1;
+                } else {
+                    die;
+                }
+            });
+
+            $cmd = [ @{$self->{rem_ssh}}, 'vzcptcheck', 'version', $version ];
+            $self->cmd_quiet($cmd);
+        };
+    	die "CPT version check failed on destination node! Destination node kernel is too old, please upgrade. Can't continue live migration" if $@;
+
+        # Check CPU compability
+        $self->log('info', "Checking for CPU flags compability");
+
+        my $cpucaps;
+
+        $cmd = [ @{$self->{rem_ssh}}, 'vzcptcheck', 'caps'];
+        eval {
+            PVE::Tools::run_command($cmd, outfunc => sub {
+                my $line = shift;
+                if ($line =~ /^([\d]+)$/s) {
+                    $self->{cpucaps} = $cpucaps = $1;
+                } else {
+                    die;
+                }
+            });
+
+            $cmd = [ 'vzcptcheck', 'caps', $vmid, $cpucaps ];
+            $self->cmd_quiet($cmd);
+        };
+        die "CPU capabilities check failed! Destination node CPU is not compatible" if $@;
+
+        # Check IPv6 support if present
+        eval {
+            if (-d "/sys/module/ipv6") {
+                $self->log('info', "Checking for IPv6 compability");
+                $cmd = [ @{$self->{rem_ssh}}, 'test', '-d', '/sys/module/ipv6'];
+                $self->cmd_quiet($cmd);
+            }
+        };
+        die "Module IPv6 is not loaded on destination node." if $@;
+
+        # Get Ploop info and top delta
+        eval {
+            $self->{ploopinfo} = PVE::OpenVZ::getPloopInfo($vmid, $self->{privatedir}, $self->{rootdir});
+        };
+        die "Unable to get ploop info" if $@;
+
     }
 
-    # fixme: do we want to test if IPs exists on target node?
+    # Check if IPs are already in use
+    if ($conf->{ip_address}->{value}) {
+        $self->log('info', "Checking for in use IP addresses");
+        eval {
+            my $ips = $conf->{ip_address}->{value};
+            $ips =~ s/ /|/g;
+            
+            $cmd = [ @{$self->{rem_ssh}}, 'cat /proc/vz/veip'];
+            PVE::Tools::run_command($cmd, outfunc => sub {
+                my $line = shift;
+                # fixme: Really odd check
+                if ($line =~ /\s+(${ips})\s+/) {
+                    die;
+                }
+            });
+        };
+        die "IP addresses already in use" if $@;
+    }
 
     return $running;
 }
@@ -96,7 +175,7 @@ sub phase1 {
     my $conf = $self->{vmconf};
 
     if ($self->{running}) {
-	$self->log('info', "container is running - using online migration"); 
+	   $self->log('info', "container is running - using online migration"); 
     }
 
     my $cmd = [ @{$self->{rem_ssh}}, 'mkdir', '-p', $self->{rootdir} ];
@@ -106,17 +185,62 @@ sub phase1 {
 
     if (!$self->{shared}) {
 
-	$cmd = [ @{$self->{rem_ssh}}, 'mkdir', '-p', $privatedir ];
-	$self->cmd_quiet($cmd, errmsg => "Failed to make container private directory");
+    	$cmd = [ @{$self->{rem_ssh}}, 'mkdir', '-p', $privatedir ];
+    	$self->cmd_quiet($cmd, errmsg => "Failed to make container private directory");
 
-	$self->{undo_private} = $privatedir;
+    	$self->{undo_private} = $privatedir;
 
-	$self->log('info', "starting rsync phase 1");
-	my $basedir = dirname($privatedir);
-	$cmd = [ @{$self->{rsync_cmd}}, '--sparse', $privatedir, "root\@$self->{nodeip}:$basedir" ];
-	$self->cmd($cmd, errmsg => "Failed to sync container private area");
+    	$self->log('info', "Syncing container private area to destination host");
+
+        if ($self->{running}) {  
+            $cmd = [ @{$self->{rsync_cmd}}, '--exclude', $self->{ploopinfo}->{top_delta}, "${privatedir}/", "root\@$self->{nodeip}:${privatedir}/" ];
+        } else {
+            $cmd = [ @{$self->{rsync_cmd}}, "${privatedir}/", "root\@$self->{nodeip}:${privatedir}/" ];
+        }
+    	$self->cmd($cmd, errmsg => "Failed to sync container private area");
+
+        if ($self->{running}) {
+
+            # Copy top delta with non-feedback
+            my $ploopdev = "/dev/$self->{ploopinfo}->{ploop_device}";
+            my $top_delta_file = "${privatedir}/$self->{ploopinfo}->{top_delta}";
+
+            die "Invalid ploop block device" if (!-b $ploopdev);
+            die "Invalid top delta" if (!-f $top_delta_file);
+
+            $cmd = [ @{$self->{rem_ssh}}, 'rm', '-rf', $self->{top_delta_file} ];
+            $self->cmd_logerr($cmd, errmsg => "Failed to remove top delta file");
+
+            my $sshcmd = join(' ', @{$self->{rem_ssh}});
+
+            $self->log('info', "Syncing top delta image to destination host");
+
+            my $ploopctcmdopts;
+
+            if ($self->{cpucaps}) {
+                $ploopctcmdopts = "--flags $self->{cpucaps}";
+            }
+            
+            $cmd = "ploop copy -s ${ploopdev} -F \"vzctl --skiplock chkpnt ${vmid} --suspend ${ploopctcmdopts} 1>&2\" | cat | ${sshcmd} ploop copy -d $top_delta_file";
+            $self->cmd($cmd, errmsg => "Failed to copy Top delta to destination host and suspend container");
+            $self->{undo_suspend} = 1;
+        }
+
     } else {
-	$self->log('info', "container data is on shared storage '$self->{storage}'");
+    	$self->log('info', "container data is on shared storage '$self->{storage}'");
+
+        if ($self->{running}) {
+            $cmd = [ 'vzctl', '--skiplock', 'chkpnt', $vmid, '--suspend' ];
+            push $cmd, '--flags', $self->{cpucaps} if $self->{cpucaps};
+            $self->cmd_quiet($cmd, errmsg => "Unable to suspend container");
+            $self->{undo_suspend} = 1;
+        } else {
+           if (PVE::OpenVZ::check_mounted($conf, $vmid)) {
+                $self->log('info', "unmounting container");
+                $cmd = [ 'vzctl', '--skiplock', 'umount', $vmid ];
+                $self->cmd_quiet($cmd, errmsg => "Failed to umount container");
+            }
+        }
     }
 
     my $conffile = PVE::OpenVZ::config_file($vmid);
@@ -124,73 +248,38 @@ sub phase1 {
 
     my $srccfgdir = dirname($conffile);
     my $newcfgdir = dirname($newconffile);
+
     foreach my $s (PVE::OpenVZ::SCRIPT_EXT) {
-	my $scriptfn = "${vmid}.$s";
-	my $srcfn = "$srccfgdir/$scriptfn";
-	next if ! -f $srcfn;
-	my $dstfn = "$newcfgdir/$scriptfn";
-	copy($srcfn, $dstfn) || die "copy '$srcfn' to '$dstfn' failed - $!\n";
+    	my $scriptfn = "${vmid}.${s}";
+    	my $srcfn = "${srccfgdir}/${scriptfn}";
+    	next if ! -f $srcfn;
+    	my $dstfn = "${newcfgdir}/${scriptfn}";
+    	copy($srcfn, $dstfn) || die "copy '${srcfn}' to '${dstfn}' failed - $!\n";
     }
 
     if ($self->{running}) {
-	# fixme: save state and quota
-	$self->log('info', "start live migration - suspending container");
-	$cmd = [ 'vzctl', '--skiplock', 'chkpnt', $vmid, '--suspend' ];
-	$self->cmd_quiet($cmd, errmsg => "Failed to suspend container");
 
-	$self->{undo_suspend} = 1;
+    	$self->log('info', "dump container state");
+    	$self->{dumpfile} = "$self->{dumpdir}/dump.$vmid";
+    	$cmd = [ 'vzctl', '--skiplock', 'chkpnt', $vmid, '--dump', '--dumpfile', $self->{dumpfile} ];
+    	$self->cmd_quiet($cmd, errmsg => "Failed to dump container state");
 
-	$self->log('info', "dump container state");
-	$self->{dumpfile} = "$self->{dumpdir}/dump.$vmid";
-	$cmd = [ 'vzctl', '--skiplock', 'chkpnt', $vmid, '--dump', '--dumpfile', $self->{dumpfile} ];
-	$self->cmd_quiet($cmd, errmsg => "Failed to dump container state");
-
-	if (!$self->{shared}) {
-	    $self->log('info', "copy dump file to target node");
-	    $self->{undo_copy_dump} = 1;
-	    $cmd = [ @{$self->{scp_cmd}}, $self->{dumpfile}, "root\@$self->{nodeip}:$self->{dumpfile}"];
-	    $self->cmd_quiet($cmd, errmsg => "Failed to copy dump file");
-
-	    $self->log('info', "starting rsync (2nd pass)");
-	    my $basedir = dirname($privatedir);
-	    $cmd = [ @{$self->{rsync_cmd}}, $privatedir, "root\@$self->{nodeip}:$basedir" ];
-	    $self->cmd($cmd, errmsg => "Failed to sync container private area");
-	}
-    } else {
-	if (PVE::OpenVZ::check_mounted($conf, $vmid)) {
-	    $self->log('info', "unmounting container");
-	    $cmd = [ 'vzctl', '--skiplock', 'umount', $vmid ];
-	    $self->cmd_quiet($cmd, errmsg => "Failed to umount container");
-	}
+    	if (!$self->{shared}) {
+    	    $self->log('info', "copy dump file to target node");
+    	    $self->{undo_copy_dump} = 1;
+    	    $cmd = [ @{$self->{scp_cmd}}, $self->{dumpfile}, "root\@$self->{nodeip}:$self->{dumpfile}"];
+    	    $self->cmd_quiet($cmd, errmsg => "Failed to copy dump file");
+    	}
     }
 
-    my $disk_quota = PVE::OpenVZ::get_disk_quota($conf);
-    if (!defined($disk_quota) || ($disk_quota != 0)) {
-	$disk_quota = $self->{disk_quota} = 1;
-
-	$self->log('info', "dump 2nd level quota");
-	$self->{quotadumpfile} = "$self->{dumpdir}/quotadump.$vmid";
-	$cmd = "vzdqdump $vmid -U -G -T > " . PVE::Tools::shellquote($self->{quotadumpfile});
-	$self->cmd_quiet($cmd, errmsg => "Failed to dump 2nd level quota");
-
-	if (!$self->{shared}) {
-	    $self->log('info', "copy 2nd level quota to target node");
-	    $self->{undo_copy_quota_dump} = 1;
-	    $cmd = [@{$self->{scp_cmd}}, $self->{quotadumpfile}, 
-		    "root\@$self->{nodeip}:$self->{quotadumpfile}"];
-	    $self->cmd_quiet($cmd, errmsg => "Failed to copy 2nd level quota dump");
-	}
-    }
-
-    # everythin copied - make sure container is stoped
-    # fixme_ do we need to start on the other node first?
+    # everything copied - make sure container is stoped
     if ($self->{running}) {
-	delete $self->{undo_suspend};
-	$cmd = [ 'vzctl', '--skiplock', 'chkpnt', $vmid, '--kill' ];
-	$self->cmd_quiet($cmd, errmsg => "Failed to kill container");
-	$cmd = [ 'vzctl', '--skiplock', 'umount', $vmid ];
-	sleep(1); # hack: wait - else there are open files 
-	$self->cmd_quiet($cmd, errmsg => "Failed to umount container");
+    	delete $self->{undo_suspend};
+    	$cmd = [ 'vzctl', '--skiplock', 'chkpnt', $vmid, '--kill' ];
+    	$self->cmd_quiet($cmd, errmsg => "Failed to kill container");
+    	$cmd = [ 'vzctl', '--skiplock', 'umount', $vmid ];
+    	sleep(1); # hack: wait - else there are open files 
+    	$self->cmd_quiet($cmd, errmsg => "Failed to umount container");
     }
 
     # move config
@@ -206,14 +295,14 @@ sub phase1_cleanup {
     my $conf = $self->{vmconf};
 
     if ($self->{undo_suspend}) {
-	my $cmd = [ 'vzctl', '--skiplock', 'chkpnt', $vmid, '--resume' ];
-	$self->cmd_logerr($cmd, errmsg => "Failed to resume container");
+    	my $cmd = [ 'vzctl', '--skiplock', 'chkpnt', $vmid, '--resume' ];
+    	$self->cmd_logerr($cmd, errmsg => "Failed to resume container");
     }
 
     if ($self->{undo_private}) { 
-	$self->log('info', "removing copied files on target node");
-	my $cmd = [ @{$self->{rem_ssh}}, 'rm', '-rf', $self->{undo_private} ];
-	$self->cmd_logerr($cmd, errmsg => "Failed to remove copied files");
+    	$self->log('info', "removing copied files on target node");
+    	my $cmd = [ @{$self->{rem_ssh}}, 'rm', '-rf', $self->{undo_private} ];
+    	$self->cmd_logerr($cmd, errmsg => "Failed to remove copied files");
     }
 
     # fixme: that seem to be very dangerous and not needed
@@ -223,11 +312,11 @@ sub phase1_cleanup {
     my $newconffile = PVE::OpenVZ::config_file($vmid, $self->{node});
     my $newcfgdir = dirname($newconffile);
     foreach my $s (PVE::OpenVZ::SCRIPT_EXT) {
-	my $scriptfn = "${vmid}.$s";
-	my $dstfn = "$newcfgdir/$scriptfn";
-	if (-f $dstfn) {
-	    $self->log('err', "unlink '$dstfn' failed - $!") if !unlink $dstfn; 
-	}
+    	my $scriptfn = "${vmid}.$s";
+    	my $dstfn = "$newcfgdir/$scriptfn";
+    	if (-f $dstfn) {
+    	    $self->log('err', "unlink '$dstfn' failed - $!") if !unlink $dstfn; 
+    	}
     }
 }
 
@@ -242,25 +331,6 @@ sub init_target_vm {
 		'--applyconfig_map', 'name', '--save'  ];
 
     $self->cmd_quiet($cmd, errmsg => "Failed to apply config on target node");
-
-    if ($self->{disk_quota}) {
-	$self->log('info', "initializing remote quota");
-	$cmd = [ @{$self->{rem_ssh}}, 'vzctl', 'quotainit', $vmid];
-	$self->cmd_quiet($cmd, errmsg => "Failed to initialize quota");
-	$self->log('info', "turn on remote quota");
-	$cmd = [ @{$self->{rem_ssh}}, 'vzctl', 'quotaon', $vmid];
-	$self->cmd_quiet($cmd, errmsg => "Failed to turn on quota");
-	$self->log('info', "load 2nd level quota");
-	$cmd = [ @{$self->{rem_ssh}}, "(vzdqload $vmid -U -G -T < " .
-		 PVE::Tools::shellquote($self->{quotadumpfile}) . 
-		 " && vzquota reload2 $vmid)"];
-	$self->cmd_quiet($cmd, errmsg => "Failed to load 2nd level quota");
-	if (!$self->{running}) {
-	    $self->log('info', "turn off remote quota");
-	    $cmd = [ @{$self->{rem_ssh}}, 'vzquota', 'off', $vmid];
-	    $self->cmd_quiet($cmd, errmsg => "Failed to turn off quota");
-	}
-    }
 }
 
 sub phase2 {
@@ -298,16 +368,10 @@ sub phase3_cleanup {
     my $conf = $self->{vmconf};
 
     if (!$self->{shared}) {
-	# destroy local container data
-	$self->log('info', "removing container files on local node");
-    PVE::OpenVZ::removeExtendedAttributes($conf, $vmid);
-	my $cmd = [ 'rm', '-rf', $self->{privatedir} ];
-	$self->cmd_logerr($cmd);
-    }
-
-    if ($self->{disk_quota}) {
-	my $cmd = [ 'vzquota', 'drop', $vmid];
-	$self->cmd_logerr($cmd, errmsg => "Failed to drop local quota");
+    	# destroy local container data
+    	$self->log('info', "removing container files on local node");
+    	my $cmd = [ 'rm', '-rf', $self->{privatedir} ];
+    	$self->cmd_logerr($cmd);
     }
 }
 
@@ -318,18 +382,11 @@ sub final_cleanup {
 
     my $conf = $self->{vmconf};
 
-    unlink($self->{quotadumpfile}) if $self->{quotadumpfile};
-
     unlink($self->{dumpfile}) if $self->{dumpfile};
 
     if ($self->{undo_copy_dump} && $self->{dumpfile}) {
-	my $cmd = [ @{$self->{rem_ssh}}, 'rm', '-f', $self->{dumpfile} ];
-	$self->cmd_logerr($cmd, errmsg => "Failed to remove dump file");
-    }
-
-    if ($self->{undo_copy_quota_dump} && $self->{quotadumpfile}) {
-	my $cmd = [ @{$self->{rem_ssh}}, 'rm', '-f', $self->{quotadumpfile} ];
-	$self->cmd_logerr($cmd, errmsg => "Failed to remove 2nd level quota dump file");
+    	my $cmd = [ @{$self->{rem_ssh}}, 'rm', '-f', $self->{dumpfile} ];
+    	$self->cmd_logerr($cmd, errmsg => "Failed to remove dump file");
     }
 }
 

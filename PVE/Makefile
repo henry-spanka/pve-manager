@@ -17,7 +17,8 @@ PERLSOURCE = 			\
 	APLInfo.pm		\
 	AutoBalloon.pm		\
 	CephTools.pm		\
-	VZDump.pm
+	VZDump.pm			\
+	Mounts.pm
 
 all: pvecfg.pm ${SUBDIRS}
 

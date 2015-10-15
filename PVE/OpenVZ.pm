@@ -17,6 +17,7 @@ use PVE::JSONSchema;
 use Digest::SHA;
 use Encode;
 use Data::UUID;
+use PVE::Mounts;
 
 use constant SCRIPT_EXT => qw (start stop mount umount premount postumount);
 
@@ -1682,4 +1683,37 @@ sub getValidUUID {
     $string =~ /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/ or die "Invalid UUID";
 
     return $string;
+}
+
+sub getPloopInfo {
+    my ($vmid, $private, $root) = @_;
+
+    my $mi = PVE::Mounts->read;
+
+    my $devmounts = $mi->at($root);
+
+    die "Could not get ploop info. Propably filesystem not mounted" if scalar @$devmounts ne 1;
+
+    my $ploopblockdevice = @$devmounts[0]->spec;
+
+    my $ploopdevice;
+
+    if ($ploopblockdevice =~ /^\/dev\/(ploop\d+)p\d$/s) {
+        $ploopdevice = $1;
+    } else {
+        die "Invalid ploop device";
+    }
+
+    my $top = PVE::Tools::file_get_contents("/sys/block/${ploopdevice}/pstate/top") || 1;
+    chomp $top;
+
+    my $top_delta = PVE::Tools::file_get_contents("/sys/block/${ploopdevice}/pdelta/${top}/image") || 1;
+    chomp $top_delta;
+
+    $top_delta =~ s/^${private}\///;
+
+    $ploopdevice =~ /\A(.*)\z/s or die "Invalid ploop device"; $ploopdevice = $1;
+    $top_delta =~ /\A(.*)\z/s or die "Invalid top delta"; $top_delta = $1; 
+
+    return { ploop_device => $ploopdevice, top_delta => $top_delta };
 }
