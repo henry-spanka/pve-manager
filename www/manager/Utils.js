@@ -449,34 +449,35 @@ Ext.define('PVE.Utils', { statics: {
     },
 
     checked_command: function(orig_cmd) {
-	PVE.Utils.API2Request({
-	    url: '/nodes/localhost/subscription',
-	    method: 'GET',
-	    //waitMsgTarget: me,
-	    failure: function(response, opts) {
-		Ext.Msg.alert(gettext('Error'), response.htmlStatus);
-	    },
-	    success: function(response, opts) {
-		var data = response.result.data;
+    	/*PVE.Utils.API2Request({
+    	    url: '/nodes/localhost/subscription',
+    	    method: 'GET',
+    	    //waitMsgTarget: me,
+    	    failure: function(response, opts) {
+	           Ext.Msg.alert(gettext('Error'), response.htmlStatus);
+    	    },
+    	    success: function(response, opts) {
+        		var data = response.result.data;
 
-		if (data.status !== 'Active') {
-		    Ext.Msg.show({
-			title: gettext('No valid subscription'),
-			icon: Ext.Msg.WARNING,
-			msg: PVE.Utils.noSubKeyHtml,
-			buttons: Ext.Msg.OK,
-			callback: function(btn) {
-			    if (btn !== 'ok') {
-				return;
-			    }
-			    orig_cmd();
-			}
-		    });
-		} else {
-		    orig_cmd();
-		}
-	    }
-	});
+        		if (data.status !== 'Active') {
+        		    Ext.Msg.show({
+            			title: gettext('No valid subscription'),
+            			icon: Ext.Msg.WARNING,
+            			msg: PVE.Utils.noSubKeyHtml,
+            			buttons: Ext.Msg.OK,
+            			callback: function(btn) {
+            			    if (btn !== 'ok') {
+            				    return;
+            			    }
+            			    orig_cmd();
+            			}
+        		    });
+        		} else {
+        		    orig_cmd();
+        		}
+    	    }
+    	});*/
+        orig_cmd();
     },
 
     task_desc_table: {
