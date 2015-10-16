@@ -19,7 +19,8 @@ SCRIPTS =  			\
 	pvesubscription		\
 	pvemailforward.pl	\
 	pveupgrade		\
-	pveperf
+	pveperf			\
+	vzcompactall
 
 MANS = 				\
 	pveceph.1		\
@@ -34,7 +35,8 @@ MANS = 				\
 	pveversion.1		\
 	pvesubscription.1	\
 	pveupgrade.1		\
-	pveperf.1
+	pveperf.1		\
+	vzcompactall.1
 
 all: ${MANS} pvemailforward
 
@@ -69,6 +71,9 @@ vzrestore.1.pod: vzrestore
 pvemailforward: pvemailforward.c
 	gcc $< -o $@ -g -O2 -Wall -ldl -lc
 
+vzcompactall.1.pod: vzcompactall
+	perl -I.. -T ./vzcompactall printmanpod >$@
+
 .PHONY: install 
 install: ${SCRIPTS} ${MANS} pvemailforward
 	perl -I.. ./pvesh verifyapi
@@ -82,6 +87,7 @@ install: ${SCRIPTS} ${MANS} pvemailforward
 	install -m 0644 vzdump.1.pod ${PODDIR}
 	install -m 0644 pvesubscription.1.pod ${PODDIR}
 	install -m 0644 vzrestore.1.pod ${PODDIR}
+	install -m 0644 vzcompactall.1.pod ${PODDIR}
 	set -e && for i in ${SUBDIRS}; do ${MAKE} -C $$i $@; done
 
 .PHONY: distclean

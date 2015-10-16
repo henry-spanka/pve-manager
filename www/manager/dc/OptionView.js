@@ -99,6 +99,30 @@ Ext.define('PVE.dc.EmailFromEdit', {
     }
 });
 
+Ext.define('PVE.dc.VZCompactallEdit', {
+    extend: 'PVE.window.Edit',
+
+    initComponent : function() {
+		var me = this;
+
+		Ext.applyIf(me, {
+		    subject: gettext('Enable VZCompactall Cron'),
+		    items: {
+				xtype: 'pvecheckbox',
+				name: 'vzcompactall',
+		        uncheckedValue: 0,
+		        defaultValue: 0,
+		        checked: false,
+				fieldLabel: gettext('Enable')
+		    }
+		});
+
+		me.callParent();
+
+		me.load();
+    }
+});
+
 Ext.define('PVE.dc.OptionView', {
     extend: 'PVE.grid.ObjectGrid',
     alias: ['widget.pveDcOptionView'],
@@ -147,6 +171,18 @@ Ext.define('PVE.dc.OptionView', {
 		    }
 		    return value;
 		}
+	    },
+	    vzcompactall: { 
+			header: gettext('VZCompactall Cron'),
+			editor: 'PVE.dc.VZCompactallEdit', 
+			required: true,
+			renderer: function(value) {
+			    if (value) {
+			    	return "Enabled(1)";
+			    } else {
+			    	return "Disabled(0)";
+			    }
+			}
 	    }
 	};
 

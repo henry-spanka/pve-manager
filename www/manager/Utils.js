@@ -515,6 +515,7 @@ Ext.define('PVE.Utils', { statics: {
 	vzsuspend: [ 'CT', gettext('Suspend') ],
 	vzresume: [ 'CT', gettext('Resume') ],
 	vzcompact: [ 'CT', gettext('Compact') ],
+    vzcompactall: [ '', gettext('Compact all Containers') ],
 	vzsnapshot: [ 'CT', gettext('Snapshot') ],
 	vzsnapshotswitch: [ 'CT', gettext('Switch Snapshot') ],
 	vzdelsnapshot: [ 'CT', gettext('Delete Snapshot') ],

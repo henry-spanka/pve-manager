@@ -1,0 +1,135 @@
+#!/usr/bin/perl -w -T
+
+use strict;
+use PVE::SafeSyslog;
+use PVE::Tools qw(extract_param);
+use PVE::INotify;
+use PVE::RPCEnvironment;
+use PVE::CLIHandler;
+use PVE::JSONSchema qw(get_standard_option);
+use PVE::OpenVZ;
+use PVE::Cluster qw(cfs_read_file);
+
+use Data::Dumper; # fixme: remove
+
+use base qw(PVE::CLIHandler);
+
+$ENV{'PATH'} = '/sbin:/bin:/usr/sbin:/usr/bin';
+
+initlog('vzcompactall');
+
+die "please run as root\n" if $> != 0;
+
+PVE::INotify::inotify_init();
+
+my $rpcenv = PVE::RPCEnvironment->init('cli');
+
+$rpcenv->init_request();
+$rpcenv->set_language($ENV{LANG});
+$rpcenv->set_user('root@pam'); 
+
+__PACKAGE__->register_method({
+    name => 'vzcompactall', 
+    path => 'vzcompactall', 
+    method => 'POST',
+    description => "Compact all containers on node. Only makes sense for ploop containers",
+    protected => 1, # vzctl only executable by root
+    parameters => {
+        additionalProperties => 0,
+        properties => {
+            force => {
+                type => 'boolean',
+                description => "Force even when disabled",
+                optional => 1
+            },
+            noerr => {
+                type => 'boolean',
+                description => "Dont exit with 1 when disabled or not forced",
+                optional => 1        
+            }
+        }
+    },
+    returns => {
+        type => 'string',
+        description => "the task ID.",
+    },
+    code => sub {
+        my ($param) = @_;
+
+        my $rpcenv = PVE::RPCEnvironment::get();
+
+        my $authuser = $rpcenv->get_user();
+
+        $param->{node} = PVE::INotify::nodename();
+
+        my $vms = PVE::OpenVZ::config_list();
+
+        my $dcconf = PVE::Cluster::cfs_read_file('datacenter.cfg');
+
+        if (!$dcconf->{vzcompactall}) {
+            if (!$param->{force}) {
+                if ($param->{noerr}) {
+                    return 0;
+                } else {
+                    die "vzcompact is currently disabled";
+                }
+            }
+        }
+
+        my $realcmd = sub {
+            PVE::Cluster::log_msg('info', $authuser, "Starting to compact all containers");
+            print "Starting to compact all containers\n";
+
+            foreach my $vmid (keys $vms) {
+                eval {
+                    PVE::Cluster::log_msg('info', $authuser, "Compacting CT $vmid");
+                    print "Compacting CT ${vmid}\n";
+
+                    PVE::OpenVZ::compactContainer($vmid);
+
+                    PVE::Cluster::log_msg('info', $authuser, "Compacted CT $vmid successfully");
+                    print "Compacted CT ${vmid} sucessfully\n";
+                };
+                if (my $err = $@) {
+                    PVE::Cluster::log_msg('warn', $authuser, "Error while compacting CT ${vmid} - $@") if $@;
+                    print "Error while compacting CT ${vmid}\n";
+                }
+            }
+
+            PVE::Cluster::log_msg('info', $authuser, "All containers compacted successfully");
+            print "All containers compacted successfully\n";
+
+        };
+        return $rpcenv->fork_worker('vzcompactall', undef, $authuser, $realcmd);
+    }
+});  
+
+my $cmddef = [ __PACKAGE__, 'vzcompactall', ['do'], undef, 
+           sub {
+               my $upid = shift;
+               if (!$upid) {
+                exit(0);
+               }
+               my $status = PVE::Tools::upid_read_status($upid);
+               exit($status eq 'OK' ? 0 : -1);
+           }];
+
+PVE::CLIHandler::handle_simple_cmd($cmddef, \@ARGV, undef, $0);
+
+exit 0;
+
+__END__
+
+=head1 NAME
+
+vzcompactall - compact all containers on node
+
+=head1 SYNOPSIS
+
+=include synopsis
+
+=head1 DESCRIPTION
+
+vzcompactall will automatically compact all containers on the node
+
+=include pve_copyright
