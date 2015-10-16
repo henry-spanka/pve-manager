@@ -102,7 +102,9 @@ sub write_graphite {
             if ( ref $value eq 'HASH' ) {
                 write_graphite($carbon_socket, $value, $ctime, $path);
             }else {
-                $carbon_socket->send( "$path $value $ctime" );
+                if ($value =~ /^[0-9.]+$/) {
+                    $carbon_socket->send( "$path $value $ctime" );
+                }
             }
         }
         $path = $oldpath;
