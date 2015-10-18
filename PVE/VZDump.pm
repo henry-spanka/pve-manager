@@ -1200,13 +1200,13 @@ my $confdesc = {
     },
     remove => {
 	type => 'boolean',
-	description => "Remove old backup files if there are more than 'maxfiles' backup files. Storage will be used as fall back for VMs.",
+	description => "Remove old backup files if there are more than 'maxfiles' backup files.",
 	optional => 1,
 	default => 1,
     },
     rsync => {
         type => 'boolean',
-        description => 'Backup OpenVZ containers using rsync',
+        description => 'Backup OpenVZ containers using rsync. Storage will be used as fall back for VMs.',
         optional => 1,
         default => 0
     },
