@@ -487,6 +487,17 @@ Ext.define('PVE.dc.BackupView', {
 		    dataIndex: 'storage'
 		},
 		{
+		    header: gettext('Rsync'),
+		    sortable: false,
+		    dataIndex: 'rsync',
+		    renderer: function(value) {
+				if (value) {
+					return "Yes";
+				}
+				return "No";
+		    }
+		},
+		{
 		    header: gettext('Selection'),
 		    flex: 1,
 		    sortable: false,
@@ -522,7 +533,7 @@ Ext.define('PVE.dc.BackupView', {
 	fields: [ 
 	    'id', 'starttime', 'dow',
 	    'storage', 'node', 'vmid', 'exclude',
-	    'mailto',
+	    'mailto', 'rsync',
 	    { name: 'all', type: 'boolean' },
 	    { name: 'snapshot', type: 'boolean' },
 	    { name: 'stop', type: 'boolean' },
