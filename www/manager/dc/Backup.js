@@ -151,7 +151,21 @@ Ext.define('PVE.dc.BackupEdit', {
 		value: '00:00',
 		allowBlank: false
 	    },
-	    selModeField
+	    selModeField,
+	    {
+			xtype: 'textfield',
+			fieldLabel: gettext('Rsync Host'),
+			name: 'rsync_destination_host',
+			id: 'rsync_destination_host',
+			disabled: true
+	    },
+	    {
+			xtype: 'textfield',
+			fieldLabel: gettext('Rsync Keyfile'),
+			name: 'rsync_keyfile',
+			id: 'rsync_keyfile',
+			disabled: true
+	    },
 	];
 
 	var column2 = [
@@ -179,6 +193,52 @@ Ext.define('PVE.dc.BackupEdit', {
 		fieldLabel: gettext('Mode'),
 		value: 'snapshot',
 		name: 'mode'
+	    },
+	    {
+			xtype: 'pvecheckbox',
+			fieldLabel: gettext('Rsync'),
+	        uncheckedValue: 0,
+	        defaultValue: 0,
+	        checked: false,
+			name: 'rsync',
+			listeners: {
+				change: function(checkbox, value) {
+					if (value) {
+						Ext.getCmp('rsync_destination_host').enable();
+						Ext.getCmp('rsync_port').enable();
+						Ext.getCmp('rsync_keyfile').enable();
+						Ext.getCmp('rsync_destination_dir').enable();
+						Ext.getCmp('rsync_user').enable();
+					} else {
+						Ext.getCmp('rsync_destination_host').disable();
+						Ext.getCmp('rsync_port').disable();
+						Ext.getCmp('rsync_keyfile').disable();
+						Ext.getCmp('rsync_destination_dir').disable();
+						Ext.getCmp('rsync_user').disable();
+					}
+				}
+			}
+	    },
+	    {
+			xtype: 'textfield',
+			fieldLabel: gettext('Rsync Port'),
+			name: 'rsync_port',
+			id: 'rsync_port',
+			disabled: true
+	    },
+	    {
+			xtype: 'textfield',
+			fieldLabel: gettext('Rsync Directory'),
+			name: 'rsync_destination_dir',
+			id: 'rsync_destination_dir',
+			disabled: true
+	    },
+	    {
+			xtype: 'textfield',
+			fieldLabel: gettext('Rsync User'),
+			name: 'rsync_user',
+			id: 'rsync_user',
+			disabled: true
 	    },
 	    vmidField
 	];

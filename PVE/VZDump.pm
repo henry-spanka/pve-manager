@@ -17,6 +17,7 @@ use PVE::VZDump::OpenVZ;
 use Time::localtime;
 use Time::Local;
 use PVE::JSONSchema qw(get_standard_option);
+use PVE::Tools qw($IPV4RE);
 
 my @posix_filesystems = qw(ext3 ext4 nfs nfs4 reiserfs xfs);
 
@@ -767,6 +768,14 @@ sub exec_backup_task {
 	    }
 	}
 
+    if ($opts->{rsync}) {
+        my $hostname = `hostname -f` || PVE::INotify::nodename();
+        $hostname =~ /\A(.*)\z/s or die "Invalid hostname"; $hostname = $1;
+        chomp $hostname;
+
+        $task->{tarfile} = "$opts->{rsync_destination_host}:$opts->{rsync_destination_dir}/${hostname}/${vmid}/";
+    }
+
 	rmtree $task->{tmpdir};
 	mkdir $task->{tmpdir};
 	-d $task->{tmpdir} ||
@@ -890,32 +899,38 @@ sub exec_backup_task {
 	    return;
 	}
 
-	debugmsg ('info', "creating archive '$task->{tarfile}'", $logfd);
-	$plugin->archive($task, $vmid, $task->{tmptar}, $comp);
+    if ($opts->{rsync} && $vmtype eq 'openvz') {
+        debugmsg ('info', "syncing files to '$opts->{rsync_destination_host}:$opts->{rsync_destination_dir} using rsync", $logfd);
+        $plugin->rsync($task, $vmid);
+    } else {
 
-	rename ($task->{tmptar}, $task->{tarfile}) ||
-	    die "unable to rename '$task->{tmptar}' to '$task->{tarfile}'\n";
+    	debugmsg ('info', "creating archive '$task->{tarfile}'", $logfd);
+    	$plugin->archive($task, $vmid, $task->{tmptar}, $comp);
 
-	# determine size
-	$task->{size} = (-s $task->{tarfile}) || 0;
-	my $cs = format_size ($task->{size}); 
-	debugmsg ('info', "archive file size: $cs", $logfd);
+    	rename ($task->{tmptar}, $task->{tarfile}) ||
+    	    die "unable to rename '$task->{tmptar}' to '$task->{tarfile}'\n";
 
-	# purge older backup
+    	# determine size
+    	$task->{size} = (-s $task->{tarfile}) || 0;
+    	my $cs = format_size ($task->{size}); 
+    	debugmsg ('info', "archive file size: $cs", $logfd);
 
-	if ($maxfiles && $opts->{remove}) {
-	    my $bklist = get_backup_file_list($opts->{dumpdir}, $bkname, $task->{tarfile});
-	    $bklist = [ sort { $b->[1] <=> $a->[1] } @$bklist ];
+    	# purge older backup
 
-	    while (scalar (@$bklist) >= $maxfiles) {
-		my $d = pop @$bklist;
-		debugmsg ('info', "delete old backup '$d->[0]'", $logfd);
-		unlink $d->[0];
-		my $logfn = $d->[0];
-		$logfn =~ s/\.(tgz|((tar|vma)(\.(gz|lzo))?))$/\.log/;
-		unlink $logfn;
-	    }
-	}
+    	if ($maxfiles && $opts->{remove}) {
+    	    my $bklist = get_backup_file_list($opts->{dumpdir}, $bkname, $task->{tarfile});
+    	    $bklist = [ sort { $b->[1] <=> $a->[1] } @$bklist ];
+
+    	    while (scalar (@$bklist) >= $maxfiles) {
+    		my $d = pop @$bklist;
+    		debugmsg ('info', "delete old backup '$d->[0]'", $logfd);
+    		unlink $d->[0];
+    		my $logfn = $d->[0];
+    		$logfn =~ s/\.(tgz|((tar|vma)(\.(gz|lzo))?))$/\.log/;
+    		unlink $logfn;
+    	    }
+    	}
+    }
 
 	$self->run_hook_script ('backup-end', $task, $logfd);
     };
@@ -1185,10 +1200,42 @@ my $confdesc = {
     },
     remove => {
 	type => 'boolean',
-	description => "Remove old backup files if there are more than 'maxfiles' backup files.",
+	description => "Remove old backup files if there are more than 'maxfiles' backup files. Storage will be used as fall back for VMs.",
 	optional => 1,
 	default => 1,
     },
+    rsync => {
+        type => 'boolean',
+        description => 'Backup OpenVZ containers using rsync',
+        optional => 1,
+        default => 0
+    },
+    rsync_destination_host => {
+        type => 'string',
+        description => 'Rsync IP/hostname',
+        optional => 1
+    },
+    rsync_port => {
+        type => 'integer',
+        description => 'Rsync Port',
+        optional => 1
+    },
+    rsync_keyfile => {
+        type => 'string',
+        description => 'Rsync keyfile if needed',
+        optional => 1
+    },
+    rsync_user => {
+        type => 'string',
+        description => 'Rsync user',
+        optional => 1
+    },
+    rsync_destination_dir => {
+        type => 'string',
+        format => 'pve-storage-path',
+        description => 'Rsync destionation dir',
+        optional => 1
+    }
 };
 
 sub option_exists {
@@ -1223,6 +1270,19 @@ sub verify_vzdump_parameters {
     raise_param_exc({ vmid => "property is missing"})
 	if !$param->{all} && !$param->{vmid};
 
+    
+    if ($param->{rsync}) {
+        raise_param_exc({ rsync => "all rsync options(except keyfile) need to be set in order to backup with rsync"})
+            if (!$param->{rsync_destination_host} || !$param->{rsync_port} || !$param->{rsync_destination_dir} || !$param->{rsync_user});
+
+        raise_param_exc({ rsync => "cannot use rsync with stdout together"})
+            if $param->{stdout};
+
+
+        raise_param_exc({ rsync_destination_host => "Invalid IP/hostname"})
+            if (!$param->{rsync_destination_host} =~ /$IPV4RE/ &&
+                !$param->{rsync_destination_host} =~ /(?:(?:(?:(?:[a-zA-Z0-9][-a-zA-Z0-9]*)?[a-zA-Z0-9])[.])*(?:[a-zA-Z][-a-zA-Z0-9]*[a-zA-Z0-9]|[a-zA-Z])[.]?)/);
+    }
 }
 
 sub command_line {

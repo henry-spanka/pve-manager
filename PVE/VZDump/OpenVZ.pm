@@ -158,6 +158,57 @@ sub archive {
     }
 }
 
+sub rsync {
+    my ($self, $task, $vmid) = @_;
+
+    die "Invalid privatedir" if !$task->{privatedir};
+
+    my $opts = $self->{vzdump}->{opts};
+    my $bwl = $opts->{bwlimit}; # bandwidth limit for rsync
+
+    my $rsynccmd = ['/usr/bin/rsync', '-aHAXv', '--numeric-ids', '--delete', '--progress'];
+
+    push $rsynccmd, "--bwlimit=${bwl}" if $bwl;
+
+    if ($task->{mode} eq 'snapshot' || $task->{mode} eq 'suspend') {
+        my $ploopinfo = PVE::OpenVZ::getPloopInfo($vmid, $task->{privatedir}, $task->{rootdir});
+        push $rsynccmd, "--exclude=$ploopinfo->{top_delta}";
+    }
+
+    if ($opts->{rsync_port} || $opts->{rsync_keyfile}) {
+        my $temprshcmd = 'ssh';
+
+        $temprshcmd .= " -p $opts->{rsync_port}" if $opts->{rsync_port};
+
+        if ($opts->{rsync_keyfile}) {
+            my $keyfile = $opts->{rsync_keyfile};
+
+            $keyfile =~ /\A(.*)\z/s or die "Invalid keyfile"; $keyfile = $1;
+            chomp $keyfile;
+
+            if (-f $keyfile) {
+                $temprshcmd .= " -i ${keyfile}";
+            } else {
+                warn "Invalid keyfile";
+            }
+        }
+        push $rsynccmd, "--rsh=${temprshcmd}";
+    }
+
+    my $hostname = `hostname -f` || PVE::INotify::nodename();
+    $hostname =~ /\A(.*)\z/s or die "Invalid hostname"; $hostname = $1;
+    chomp $hostname;
+
+    my $user = $opts->{rsync_user};
+    $user =~ /\A(.*)\z/s or die "Invalid user"; $user = $1;
+    chomp $user;
+
+    push $rsynccmd, "$task->{privatedir}", "${user}\@$opts->{rsync_destination_host}:$opts->{rsync_destination_dir}/${hostname}/";
+
+    sleep(1); # Just sleep to be sure IO has been flushed
+    $self->cmd ($rsynccmd);
+}
+
 sub cleanup {
     my ($self, $task, $vmid) = @_;
 
