@@ -152,6 +152,31 @@ Ext.define('PVE.dc.BackupEdit', {
 		allowBlank: false
 	    },
 	    selModeField,
+        {
+            xtype: 'pvecheckbox',
+            fieldLabel: gettext('Rsync'),
+            uncheckedValue: 0,
+            defaultValue: 0,
+            checked: false,
+            name: 'rsync',
+            listeners: {
+                change: function(checkbox, value) {
+                    if (value) {
+                        Ext.getCmp('rsync_destination_host').enable();
+                        Ext.getCmp('rsync_port').enable();
+                        Ext.getCmp('rsync_keyfile').enable();
+                        Ext.getCmp('rsync_destination_dir').enable();
+                        Ext.getCmp('rsync_user').enable();
+                    } else {
+                        Ext.getCmp('rsync_destination_host').disable();
+                        Ext.getCmp('rsync_port').disable();
+                        Ext.getCmp('rsync_keyfile').disable();
+                        Ext.getCmp('rsync_destination_dir').disable();
+                        Ext.getCmp('rsync_user').disable();
+                    }
+                }
+            }
+        },
 	    {
 			xtype: 'textfield',
 			fieldLabel: gettext('Rsync Host'),
@@ -194,31 +219,12 @@ Ext.define('PVE.dc.BackupEdit', {
 		value: 'snapshot',
 		name: 'mode'
 	    },
-	    {
-			xtype: 'pvecheckbox',
-			fieldLabel: gettext('Rsync'),
-	        uncheckedValue: 0,
-	        defaultValue: 0,
-	        checked: false,
-			name: 'rsync',
-			listeners: {
-				change: function(checkbox, value) {
-					if (value) {
-						Ext.getCmp('rsync_destination_host').enable();
-						Ext.getCmp('rsync_port').enable();
-						Ext.getCmp('rsync_keyfile').enable();
-						Ext.getCmp('rsync_destination_dir').enable();
-						Ext.getCmp('rsync_user').enable();
-					} else {
-						Ext.getCmp('rsync_destination_host').disable();
-						Ext.getCmp('rsync_port').disable();
-						Ext.getCmp('rsync_keyfile').disable();
-						Ext.getCmp('rsync_destination_dir').disable();
-						Ext.getCmp('rsync_user').disable();
-					}
-				}
-			}
-	    },
+        {
+            xtype: 'numberfield',
+            fieldLabel: gettext('BW Limit(KB/s)'),
+            name: 'bwlimit',
+            minValue: 0,
+        },
 	    {
 			xtype: 'textfield',
 			fieldLabel: gettext('Rsync Port'),
