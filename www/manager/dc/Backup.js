@@ -226,7 +226,7 @@ Ext.define('PVE.dc.BackupEdit', {
             minValue: 0,
         },
 	    {
-			xtype: 'textfield',
+			xtype: 'numberfield',
 			fieldLabel: gettext('Rsync Port'),
 			name: 'rsync_port',
 			id: 'rsync_port',
