@@ -88,7 +88,7 @@ __PACKAGE__->register_method({
                     PVE::OpenVZ::compactContainer($vmid);
 
                     PVE::Cluster::log_msg('info', $authuser, "Compacted CT $vmid successfully");
-                    print "Compacted CT ${vmid} sucessfully\n";
+                    print "Compacted CT ${vmid} successfully\n";
                 };
                 if (my $err = $@) {
                     PVE::Cluster::log_msg('warn', $authuser, "Error while compacting CT ${vmid} - $@") if $@;
