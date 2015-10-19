@@ -502,6 +502,8 @@ Ext.define('PVE.Utils', { statics: {
 	qmsuspend: [ 'VM', gettext('Suspend') ],
 	qmresume: [ 'VM', gettext('Resume') ],
 	qmconfig: [ 'VM', gettext('Configure') ],
+    qmisodownload: [ 'VM', gettext('Download ISO') ],
+    qmisoupload: [ 'VM', gettext('Upload ISO') ],
 	vzcreate: ['CT', gettext('Create') ],
 	vzrestore: ['CT', gettext('Restore') ],
 	vzdestroy: ['CT', gettext('Destroy') ],
