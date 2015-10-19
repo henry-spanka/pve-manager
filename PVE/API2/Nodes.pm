@@ -266,6 +266,16 @@ __PACKAGE__->register_method({
    
 	my ($sysname, $nodename, $release, $version, $machine) = POSIX::uname();
 
+    if (-x '/usr/bin/kcare-uname') {
+        PVE::Tools::run_command(['/usr/bin/kcare-uname', '-s', '-r', '-v'], outfunc => sub {
+            my $line = shift;
+
+            if ($line =~ /^(\S+)\s(\S+)\s(.+)$/) {
+                ($sysname, $release, $version) = ("${1}/KernelCare", $2, $3);
+            }
+        });
+    }
+
 	$res->{kversion} = "$sysname $release $version";
 
 	$res->{cpuinfo} = PVE::ProcFSTools::read_cpuinfo();
