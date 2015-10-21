@@ -1383,11 +1383,6 @@ sub vm_resume {
 sub set_rootpasswd {
     my ($vmid, $opt_rootpasswd) = @_;
 
-    if ($opt_rootpasswd !~ m/^\$/) {
-	   my $time = substr (Digest::SHA::sha1_base64 (time), 0, 8);
-	   $opt_rootpasswd = crypt(encode("utf8", $opt_rootpasswd), "\$1\$$time\$");
-    }
-
     my $cmd = ['vzctl', '--skiplock', 'set', $vmid, '--userpasswd', "root:${opt_rootpasswd}"];
     eval {
         run_command($cmd);
