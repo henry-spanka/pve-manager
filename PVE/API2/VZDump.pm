@@ -156,5 +156,9 @@ __PACKAGE__->register_method ({
 	    }
 	}
 
+    if (scalar(@vmids) == 1) {
+        return $rpcenv->fork_worker('vzsingledump', $vmids[0], $user, $worker);
+    }
+
 	return $rpcenv->fork_worker('vzdump', undef, $user, $worker);
    }});

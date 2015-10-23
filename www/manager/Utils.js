@@ -536,6 +536,7 @@ Ext.define('PVE.Utils', { statics: {
 	imgdel: ['', gettext('Erase data') ],
 	download: ['', gettext('Download') ],
 	vzdump: ['', gettext('Backup') ],
+    vzsingledump: ['CT/VM', gettext('Backup')],
 	aptupdate: ['', gettext('Update package database') ],
 	startall: [ '', gettext('Start all VMs and Containers') ],
 	stopall: [ '', gettext('Stop all VMs and Containers') ]
