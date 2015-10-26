@@ -357,7 +357,12 @@ __PACKAGE__->register_method({
 		    type => 'string',
 		    description => 'Enables or disables the FUSE Device inside container.',
 		    optional => 1,
-		}
+		},
+        ppp => {
+            type => 'string',
+            description => 'Enables or ddisables the PPP feature of a container.',
+            optional => 1,
+        }
 	    }),
     },
     returns => { type => 'null'},
@@ -388,6 +393,8 @@ __PACKAGE__->register_method({
 
         my $devnodes = [];
         my $capabilities = [];
+        my $devices = [];
+        my $features = [];
         
 		if($param->{tuntap}) {
 			if($param->{tuntap} eq "enable") {
@@ -405,12 +412,26 @@ __PACKAGE__->register_method({
 				push(@$devnodes, 'fuse:none');
             }
         }
+        if($param->{ppp}) {
+            die "CT $vmid needs to be stopped\n" if PVE::OpenVZ::check_running($vmid);
+            if($param->{ppp} eq "enable") {
+                push (@$features, 'ppp:on');
+                push (@$devices, 'c:108:0:rw');
+            } else {
+                push (@$features, 'ppp:off');
+                push (@$devices, 'c:108:0:none');
+            }
+        }
 
         push(@$devnodes, split(' ', $param->{devnodes})) if(defined($param->{devnodes}));
         push(@$capabilities, split(' ', $param->{capability})) if(defined($param->{capability}));
+        push(@$devices, split(' ', $param->{devices})) if(defined($param->{devices}));
+        push(@$features, split(' ', $param->{features})) if(defined($param->{features}));
 
         $param->{devnodes} = join(' ', @$devnodes) if(@$devnodes);
         $param->{capability} = join(' ', @$capabilities) if(@$capabilities);
+        $param->{devices} = join(' ', @$devices) if(@$devices);
+        $param->{features} = join(' ', @$features) if(@$features);
 
 	    my $changes = PVE::OpenVZ::update_ovz_config($vmid, $conf, $param);
 

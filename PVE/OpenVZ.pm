@@ -507,6 +507,11 @@ my $confdesc = {
 	type => 'string',
     description => "Specifies capabilitys for the container.",
     },
+    features => {
+        optional => 1,
+        type => 'string',
+        description => "Specifies features for the container.",
+    },
     iolimit => {
     	optional => 1,
     	type => 'integer',
@@ -1216,6 +1221,10 @@ sub update_ovz_config {
     if (defined($param->{capability})) {
         $veconf->{'capability'}->{value} = $param->{capability};
         push @$changes, '--capability', "$param->{capability}";
+    }
+    if (defined($param->{features})) {
+        $veconf->{'features'}->{value} = $param->{features};
+        push @$changes, '--features', "$param->{features}";
     }
 
     # IO settings
