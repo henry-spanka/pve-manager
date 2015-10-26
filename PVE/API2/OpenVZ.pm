@@ -360,7 +360,7 @@ __PACKAGE__->register_method({
 		},
         ppp => {
             type => 'boolean',
-            description => 'Enables or ddisables the PPP feature of a container.',
+            description => 'Enables or disables the PPP feature of a container.',
             optional => 1,
         }
 	    }),
@@ -414,7 +414,7 @@ __PACKAGE__->register_method({
         }
         if (defined($param->{ppp})) {
             die "CT $vmid needs to be stopped\n" if PVE::OpenVZ::check_running($vmid);
-            
+
             if ($param->{ppp}) {
                 push (@$features, 'ppp:on');
                 push (@$devices, 'c:108:0:rw');
