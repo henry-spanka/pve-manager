@@ -349,17 +349,17 @@ __PACKAGE__->register_method({
 		    optional => 1,
 	    },
 	    tuntap => {
-		    type => 'string',
+		    type => 'boolean',
 		    description => 'Enables or disables the TUN/TAP Device inside container.',
 		    optional => 1,
 	    },
 	    fuse => {
-		    type => 'string',
+		    type => 'boolean',
 		    description => 'Enables or disables the FUSE Device inside container.',
 		    optional => 1,
 		},
         ppp => {
-            type => 'string',
+            type => 'boolean',
             description => 'Enables or ddisables the PPP feature of a container.',
             optional => 1,
         }
@@ -396,8 +396,8 @@ __PACKAGE__->register_method({
         my $devices = [];
         my $features = [];
         
-		if($param->{tuntap}) {
-			if($param->{tuntap} eq "enable") {
+		if (defined($param->{tuntap})) {
+			if ($param->{tuntap}) {
                 push(@$devnodes, 'net/tun:rw');
 				push(@$capabilities, 'net_admin:on');
 			} else {
@@ -405,16 +405,17 @@ __PACKAGE__->register_method({
 				push(@$capabilities, 'net_admin:off');
 			}
 		}
-        if($param->{fuse}) {
-            if($param->{fuse} eq "enable") {
+        if (defined($param->{fuse})) {
+            if ($param->{fuse}) {
 				push(@$devnodes, 'fuse:rw');
             } else {
 				push(@$devnodes, 'fuse:none');
             }
         }
-        if($param->{ppp}) {
+        if (defined($param->{ppp})) {
             die "CT $vmid needs to be stopped\n" if PVE::OpenVZ::check_running($vmid);
-            if($param->{ppp} eq "enable") {
+            
+            if ($param->{ppp}) {
                 push (@$features, 'ppp:on');
                 push (@$devices, 'c:108:0:rw');
             } else {
