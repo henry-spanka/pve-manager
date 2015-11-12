@@ -6,6 +6,7 @@ SCRIPTS =  			\
 	pveceph			\
 	vzdump			\
 	vzrestore		\
+	vzconvert		\
 	pvestatd		\
 	pvesh			\
 	pveam			\
@@ -27,6 +28,7 @@ MANS = 				\
 	pvectl.1		\
 	vzdump.1		\
 	vzrestore.1		\
+	vzconvert.1		\
 	pvestatd.1		\
 	pvedaemon.1		\
 	pveproxy.1		\
@@ -67,6 +69,9 @@ pvesubscription.1.pod: pvesubscription
 
 vzrestore.1.pod: vzrestore
 	perl -I.. ./vzrestore printmanpod >$@
+
+vzconvert.1.pod: vzconvert
+	perl -I.. -T ./vzconvert printmanpod >$@
 
 pvemailforward: pvemailforward.c
 	gcc $< -o $@ -g -O2 -Wall -ldl -lc

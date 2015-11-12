@@ -1,0 +1,157 @@
+#!/usr/bin/perl -w -T
+
+use strict;
+use PVE::SafeSyslog;
+use PVE::Tools qw(extract_param);
+use PVE::INotify;
+use PVE::RPCEnvironment;
+use PVE::CLIHandler;
+use PVE::JSONSchema qw(get_standard_option);
+use PVE::OpenVZ;
+use PVE::Cluster;
+
+use Data::Dumper; # fixme: remove
+
+use base qw(PVE::CLIHandler);
+
+$ENV{'PATH'} = '/sbin:/bin:/usr/sbin:/usr/bin';
+
+initlog('vzconvert');
+
+die "please run as root\n" if $> != 0;
+
+PVE::INotify::inotify_init();
+
+my $rpcenv = PVE::RPCEnvironment->init('cli');
+
+$rpcenv->init_request();
+$rpcenv->set_language($ENV{LANG});
+$rpcenv->set_user('root@pam');
+
+my $OBSOLETE_BEANCOUNTERS = [
+    'KMEMSIZE',
+    'LOCKEDPAGES',
+    'PRIVVMPAGES',
+    'SHMPAGES',
+    'NUMPROC',
+    'VMGUARPAGES',
+    'OOMGUARPAGE',
+    'NUMTCPSOCK',
+    'NUMFLOCK',
+    'NUMPTY',
+    'NUMSIGINFO',
+    'TCPSNDBUF',
+    'TCPRCVBUF',
+    'OTHERSOCKBUF',
+    'DGRAMRCVBU',
+    'NUMOTHERSOCK',
+    'DCACHESIZE',
+    'NUMFILE',
+    'AVNUMPROC',
+    'NUMIPTENT',
+    'ORIGIN_SAMPLE',
+    'DISKINODES',
+    'DGRAMRCVBUF',
+    'OOMGUARPAGES',
+    'QUOTATIME'
+];
+
+__PACKAGE__->register_method({
+    name => 'vzconvert', 
+    path => 'vzconvert', 
+    method => 'POST',
+    description => "Converts container layout to ploop",
+    protected => 1, # vzctl only executable by root
+    parameters => {
+        additionalProperties => 0,
+        properties => {
+            vmid => get_standard_option('pve-vmid')
+        }
+    },
+    returns => {
+        type => 'null'
+    },
+    code => sub {
+        my ($param) = @_;
+
+        my $vmid = $param->{vmid};
+
+        my $node = PVE::INotify::nodename();
+
+        PVE::Cluster::check_cfs_quorum();
+
+        my $container_config = PVE::OpenVZ::load_config($vmid);
+        my $config_file = PVE::OpenVZ::config_file($vmid, $node);
+
+        die "Container is running" if PVE::OpenVZ::check_running($vmid);
+        die "Container is mounted" if PVE::OpenVZ::check_mounted($container_config, $vmid);
+
+        my $ob_bc = join('|', @$OBSOLETE_BEANCOUNTERS);
+
+        print "Removing obsolete config variables\n";
+
+        eval {
+            PVE::Tools::run_command("cat ${config_file} | grep -Ev '^(${ob_bc})=' > /tmp/${vmid}.vzconvert");
+            my $raw_config = PVE::Tools::file_get_contents("/tmp/${vmid}.vzconvert");
+            PVE::Tools::file_set_contents($config_file, $raw_config);
+            unlink "/tmp/${vmid}.vzconvert";
+        };
+
+        if (my $err = $@) {
+            die "Could not remove obsolete config values from container config - ${err}";
+            unlink "/tmp/${vmid}.vzconvert";
+        }
+
+        print "Converting container to ploop\n";
+
+        eval {
+            PVE::Tools::run_command(['vzctl', 'convert', $vmid]);
+
+            sleep(1); # Just to be sure config file is synced
+
+            # Reload config file - vzctl convert could automatically set VE_LAYOUT
+            # and we do not want to have duplicates in our config file
+            PVE::Cluster::cfs_update();
+            $container_config = PVE::OpenVZ::load_config($vmid);
+
+            if (!defined($container_config->{ve_layout})) {
+                print "Setting VE_LAYOUT to ploop\n";
+                PVE::Tools::run_command("echo 'VE_LAYOUT=\"ploop\"' >> $config_file");
+            }
+            if (!defined($container_config->{vm_overcommit})) {
+                print "Setting VM_OVERCOMMIT to 1\n";
+                PVE::Tools::run_command("echo 'VM_OVERCOMMIT=\"1\"' >> $config_file");
+            }
+        };
+
+        if (my $err = $@) {
+            die "Error while converting container to ploop - ${err}";
+        }
+
+        print "Container converted successfully.\n";
+
+        return undef;
+    }
+});
+
+my $cmddef = [ __PACKAGE__, 'vzconvert', ['vmid'] ];
+
+PVE::CLIHandler::handle_simple_cmd($cmddef, \@ARGV, undef, $0);
+
+exit 0;
+
+__END__
+
+=head1 NAME
+
+vzconvert - convert container from simfs to ploop
+
+=head1 SYNOPSIS
+
+=include synopsis
+
+=head1 DESCRIPTION
+
+Converts a container from simfs to the ploop layout and removes obsolete beancounters
+
+=include pve_copyright
