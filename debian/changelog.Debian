@@ -1,3 +1,21 @@
+pve-manager (4.0-1) unstable; urgency=low
+
+  * #4 - switch from simfs to ploop
+
+  * #19 - allow PPP to be enabled
+
+  * #13 - integrate with graphite/carbon and InfluxDB API
+
+  * #8 - Integration with kernelcare.com
+
+  * #7 Fix ISO download/upload task description
+
+  * #6 - Assign Backup tash to VM/CT
+
+  * #5 - Rework TUN/TAP and FUSE implementation
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Fri, 13 Nov 2015 15:19:31 +0100
+
 pve-manager (3.3-17) unstable; urgency=low
 
   * closes #3 - implement two-factor authentication via DuoSecurity
