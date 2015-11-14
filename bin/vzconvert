@@ -120,7 +120,7 @@ __PACKAGE__->register_method({
             }
             if (!defined($container_config->{vm_overcommit})) {
                 print "Setting VM_OVERCOMMIT to 1\n";
-                PVE::Tools::run_command("echo 'VM_OVERCOMMIT=\"1\"' >> $config_file");
+                PVE::Tools::run_command("echo 'VM_OVERCOMMIT=\"1.5\"' >> $config_file");
             }
         };
 

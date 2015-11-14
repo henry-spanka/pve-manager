@@ -28,7 +28,7 @@ use Data::Dumper; # fixme: remove
 my $pve_base_ovz_config = <<__EOD;
 ONBOOT="no"
 
-VM_OVERCOMMIT="1"
+VM_OVERCOMMIT="1.5"
 VE_LAYOUT="ploop"
 
 # Disk quota parameters (in form of softlimit:hardlimit)
