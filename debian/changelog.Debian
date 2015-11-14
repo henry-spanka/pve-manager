@@ -1,3 +1,9 @@
+pve-manager (4.0-3) unstable; urgency=low
+
+  * Set vm_overcommit parameter to 1.5 to fix allocation issues
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sat, 14 Nov 2015 18:25:10 +0100
+
 pve-manager (4.0-2) unstable; urgency=low
 
   * Add missing dependency libossp-uuid-perl
