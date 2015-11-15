@@ -166,7 +166,7 @@ sub rsync {
     my $opts = $self->{vzdump}->{opts};
     my $bwl = $opts->{bwlimit}; # bandwidth limit for rsync
 
-    my $rsynccmd = ['/usr/bin/rsync', '-aHAXv', '--numeric-ids', '--delete', '--progress'];
+    my $rsynccmd = ['/usr/bin/rsync', '-aHAXv', '--numeric-ids', '--delete', '--progress', '--sparse', '--inplace'];
 
     push $rsynccmd, "--bwlimit=${bwl}" if $bwl;
 
