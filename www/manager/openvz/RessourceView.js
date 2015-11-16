@@ -54,7 +54,15 @@ Ext.define('PVE.openvz.RessourceView', {
 		renderer: function(value) {
 		    return PVE.Utils.format_size(value*1024*1024*1024);
 		}
-	    }
+	    },
+	    vm_overcommit: {
+			header: gettext('VM Overcommit'),
+			editor: resEditor,
+			never_delete: true,
+			renderer: function(value) {
+			    return value;
+			}
+		}
 	};
 
 	var reload = function() {

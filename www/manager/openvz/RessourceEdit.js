@@ -31,6 +31,16 @@ Ext.define('PVE.openvz.RessourceInputPanel', {
 		fieldLabel: gettext('Swap') + ' (MB)',
 		labelWidth: labelWidth,
 		allowBlank: false
+	    },
+	    {
+		xtype: 'numberfield',
+		name: 'vm_overcommit',
+		minValue: 1,
+		value: '1.5',
+		step: 0.1,
+		fieldLabel: gettext('VM Overcommit'),
+		labelWidth: labelWidth,
+		allowBlank: false
 	    }
 	];
 
