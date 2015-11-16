@@ -1,3 +1,9 @@
+pve-manager (4.0-6) unstable; urgency=low
+
+  * add vm_overcommit option to GUI
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Mon, 16 Nov 2015 19:00:31 +0100
+
 pve-manager (4.0-5) unstable; urgency=low
 
   * sparse option can not be used together with inplace
