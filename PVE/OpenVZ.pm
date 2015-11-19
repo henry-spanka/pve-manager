@@ -1547,9 +1547,16 @@ sub reinstallContainer {
         run_command($cmd);
 
         umountContainer($vmid, 1);
+
+        my $basename = File::Basename::basename($archive);
+
+        $cmd = ['vzctl', '--skiplock', 'set', $vmid, '--ostemplate', $basename, '--save'];
+        run_command($cmd);
     };
     if (my $err = $@) {
-        umountContainer($vmid, 1);
+        eval {
+            umountContainer($vmid, 1);
+        };
         die $err;
     }
 }

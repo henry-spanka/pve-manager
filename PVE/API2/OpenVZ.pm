@@ -785,8 +785,6 @@ __PACKAGE__->register_method({
 	my $code = sub {
 		&$check_vmid_usage(); # final check after locking
 		
-		PVE::OpenVZ::update_ovz_config($vmid, $conf, $param);
-		
 		PVE::Cluster::check_cfs_quorum();
 		
 		PVE::OpenVZ::reinstallContainer($vmid, $archive);
