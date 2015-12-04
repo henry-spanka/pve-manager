@@ -224,7 +224,7 @@ sub read_container_ioacct_stat {
     	while (defined (my $line = <$fh>)) {
     	    if ($line =~ m/^\s+read\s+(\d+)$/) {
     		  $read += $1;
-    	    } elsif ($line =~ m/^\s+dirty\s+(\d+)$/) { # write is not correct. Don't know if dirty is better ;(
+    	    } elsif ($line =~ m/^\s+write\s+(\d+)$/) {
     		  $write += $1;
     	    }
     	}
