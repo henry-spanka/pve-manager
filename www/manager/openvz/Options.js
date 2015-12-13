@@ -79,6 +79,43 @@ Ext.define('PVE.openvz.Options', {
 				}
 			} : undefined
 	    },
+        iolimit: {
+            header: gettext('IO limit'),
+            defaultValue: '0',
+            renderer: function(value) {
+                return PVE.Utils.format_size(value);
+            },
+            editor: caps.vms['VM.Config.Disk'] ? {
+                xtype: 'pveWindowEdit',
+                subject: gettext('IO Limit'),
+                items: {
+                    xtype: 'numberfield',
+                    name: 'iolimit',
+                    fieldLabel: gettext('IO limit'),
+                    minValue: 0,
+                    maxValue: 1024,
+                    defaultValue: 0,
+                    allowBlank: false
+                }
+            } : undefined
+        },
+        iopslimit: {
+            header: gettext('IOPS limit'),
+            defaultValue: '0',
+            editor: caps.vms['VM.Config.Disk'] ? {
+                xtype: 'pveWindowEdit',
+                subject: gettext('IOPS limit'),
+                items: {
+                    xtype: 'numberfield',
+                    name: 'iopslimit',
+                    fieldLabel: gettext('IOPS limit'),
+                    minValue: 0,
+                    maxValue: 80000,
+                    defaultValue: 0,
+                    allowBlank: false
+                }
+            } : undefined
+        },
 	    quotaugidlimit: {
 		header: gettext('Quota UGID limit'),
 		defaultValue: '0',
