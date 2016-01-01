@@ -18,6 +18,10 @@ use PVE::RPCEnvironment;
 use PVE::API2::Subscription;
 use PVE::AutoBalloon;
 
+use Storable 'dclone';
+
+use PVE::Database;
+
 use PVE::Status::Plugin;
 use PVE::Status::Graphite;
 
@@ -111,6 +115,12 @@ sub update_node_status {
 
     PVE::Cluster::broadcast_rrd("pve2-node/$nodename", $data);
 
+    my $hostdbconf = PVE::Database::load_hostdb_conf();
+
+    $hostdbconf = PVE::Database::update_host_network($netdev, $nodename, $hostdbconf);
+
+    PVE::Database::save_hostdb_conf($hostdbconf);
+
     foreach my $id (keys %{$status_cfg->{ids}}) {
         my $plugin_config = $status_cfg->{ids}->{$id};
         next if $plugin_config->{disable};
@@ -126,6 +136,8 @@ sub update_node_status {
         $d->{memory} = $meminfo;
         $d->{blockstat} = $dinfo;
         $d->{nics} = $netdev;
+
+        $d->{database} = $hostdbconf;
 
         $plugin->update_node_status($plugin_config, $nodename, $d, $ctime);
     }
@@ -181,6 +193,8 @@ sub update_qemu_status {
     eval { auto_balloning($vmstatus); };
     syslog('err', "auto ballooning error: $@") if $@;
 
+    my $statushash = {};
+
     foreach my $vmid (keys %$vmstatus) {
     	my $d = $vmstatus->{$vmid};
     	my $data;
@@ -200,13 +214,22 @@ sub update_qemu_status {
     		":::";
     	}
     	PVE::Cluster::broadcast_rrd("pve2.3-vm/$vmid", $data);
+
+        my $vmdbconf = PVE::Database::load_vmdb_conf($vmid);
+        
+        PVE::Database::update_vm_network($d, $vmid, $vmdbconf);
+
+        PVE::Database::save_vmdb_conf($vmid, $vmdbconf);
+
+        $d->{database} = $vmdbconf;
+        $statushash->{$vmid} = dclone $d;
     }
 
     foreach my $id (keys %{$status_cfg->{ids}}) {
         my $plugin_config = $status_cfg->{ids}->{$id};
         next if $plugin_config->{disable};
         my $plugin = PVE::Status::Plugin->lookup($plugin_config->{type});
-        $plugin->update_qemu_status($plugin_config, $vmstatus, $ctime);
+        $plugin->update_qemu_status($plugin_config, $statushash, $ctime);
     }
 
 }
@@ -258,6 +281,8 @@ sub update_openvz_status {
 
     my $vmstatus = PVE::OpenVZ::vmstatus();
 
+    my $statushash = {};
+
     foreach my $vmid (keys %$vmstatus) {
     	my $d = $vmstatus->{$vmid};
     	my $data;
@@ -274,13 +299,23 @@ sub update_openvz_status {
     		":::";
     	}
     	PVE::Cluster::broadcast_rrd("pve2.3-vm/$vmid", $data);
+
+        my $vmdbconf = PVE::Database::load_vmdb_conf($vmid);
+        
+        $vmdbconf = PVE::Database::update_vm_network($d, $vmid, $vmdbconf);
+        $vmdbconf = PVE::Database::update_vm_disk($d, $vmid, $vmdbconf);
+
+        PVE::Database::save_vmdb_conf($vmid, $vmdbconf);
+
+        $d->{database} = $vmdbconf;
+        $statushash->{$vmid} = dclone $d;
     }
 
     foreach my $id (keys %{$status_cfg->{ids}}) {
         my $plugin_config = $status_cfg->{ids}->{$id};
         next if $plugin_config->{disable};
         my $plugin = PVE::Status::Plugin->lookup($plugin_config->{type});
-        $plugin->update_openvz_status($plugin_config, $vmstatus, $ctime);
+        $plugin->update_openvz_status($plugin_config, $statushash, $ctime);
     }
 
 }
