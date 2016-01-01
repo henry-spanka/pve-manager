@@ -182,32 +182,33 @@ sub update_qemu_status {
     syslog('err', "auto ballooning error: $@") if $@;
 
     foreach my $vmid (keys %$vmstatus) {
-	my $d = $vmstatus->{$vmid};
-	my $data;
-	my $status = $d->{qmpstatus} || $d->{status} || 'stopped';
-	my $template = $d->{template} ? $d->{template} : "0";
-	if ($d->{pid}) { # running
-	    $data = "$d->{uptime}:$d->{name}:$status:$template:" .
-		"$ctime:$d->{cpus}:$d->{cpu}:" .
-		"$d->{maxmem}:$d->{mem}:" .
-		"$d->{maxdisk}:$d->{disk}:" .
-		"$d->{netin}:$d->{netout}:" .
-		"$d->{diskread}:$d->{diskwrite}";
-	} else {
-	    $data = "0:$d->{name}:$status:$template:$ctime:$d->{cpus}::" .
-		"$d->{maxmem}::" .
-		"$d->{maxdisk}:$d->{disk}:" .
-		":::";
-	}
-	PVE::Cluster::broadcast_rrd("pve2.3-vm/$vmid", $data);
+    	my $d = $vmstatus->{$vmid};
+    	my $data;
+    	my $status = $d->{qmpstatus} || $d->{status} || 'stopped';
+    	my $template = $d->{template} ? $d->{template} : "0";
+    	if ($d->{pid}) { # running
+    	    $data = "$d->{uptime}:$d->{name}:$status:$template:" .
+    		"$ctime:$d->{cpus}:$d->{cpu}:" .
+    		"$d->{maxmem}:$d->{mem}:" .
+    		"$d->{maxdisk}:$d->{disk}:" .
+    		"$d->{netin}:$d->{netout}:" .
+    		"$d->{diskread}:$d->{diskwrite}";
+    	} else {
+    	    $data = "0:$d->{name}:$status:$template:$ctime:$d->{cpus}::" .
+    		"$d->{maxmem}::" .
+    		"$d->{maxdisk}:$d->{disk}:" .
+    		":::";
+    	}
+    	PVE::Cluster::broadcast_rrd("pve2.3-vm/$vmid", $data);
+    }
 
     foreach my $id (keys %{$status_cfg->{ids}}) {
         my $plugin_config = $status_cfg->{ids}->{$id};
         next if $plugin_config->{disable};
         my $plugin = PVE::Status::Plugin->lookup($plugin_config->{type});
-        $plugin->update_qemu_status($plugin_config, $vmid, $d, $ctime);
+        $plugin->update_qemu_status($plugin_config, $vmstatus, $ctime);
     }
-    }
+
 }
 
 sub find_vzctl_console_pids {
@@ -258,29 +259,30 @@ sub update_openvz_status {
     my $vmstatus = PVE::OpenVZ::vmstatus();
 
     foreach my $vmid (keys %$vmstatus) {
-	my $d = $vmstatus->{$vmid};
-	my $data;
-	if ($d->{status} eq 'running') { # running
-	    $data = "$d->{uptime}:$d->{name}:$d->{status}:0:$ctime:$d->{cpus}:$d->{cpu}:" .
-		"$d->{maxmem}:$d->{mem}:" .
-		"$d->{maxdisk}:$d->{disk}:" .
-		"$d->{netin}:$d->{netout}:" .
-		"$d->{diskread}:$d->{diskwrite}";
-	} else {
-	    $data = "0:$d->{name}:$d->{status}:0:$ctime:$d->{cpus}::" .
-		"$d->{maxmem}::" .
-		"$d->{maxdisk}:$d->{disk}:" .
-		":::";
-	}
-	PVE::Cluster::broadcast_rrd("pve2.3-vm/$vmid", $data);
+    	my $d = $vmstatus->{$vmid};
+    	my $data;
+    	if ($d->{status} eq 'running') { # running
+    	    $data = "$d->{uptime}:$d->{name}:$d->{status}:0:$ctime:$d->{cpus}:$d->{cpu}:" .
+    		"$d->{maxmem}:$d->{mem}:" .
+    		"$d->{maxdisk}:$d->{disk}:" .
+    		"$d->{netin}:$d->{netout}:" .
+    		"$d->{diskread}:$d->{diskwrite}";
+    	} else {
+    	    $data = "0:$d->{name}:$d->{status}:0:$ctime:$d->{cpus}::" .
+    		"$d->{maxmem}::" .
+    		"$d->{maxdisk}:$d->{disk}:" .
+    		":::";
+    	}
+    	PVE::Cluster::broadcast_rrd("pve2.3-vm/$vmid", $data);
+    }
 
     foreach my $id (keys %{$status_cfg->{ids}}) {
         my $plugin_config = $status_cfg->{ids}->{$id};
         next if $plugin_config->{disable};
         my $plugin = PVE::Status::Plugin->lookup($plugin_config->{type});
-        $plugin->update_openvz_status($plugin_config, $vmid, $d, $ctime);
+        $plugin->update_openvz_status($plugin_config, $vmstatus, $ctime);
     }
-    }
+
 }
 
 sub update_storage_status {
@@ -292,25 +294,30 @@ sub update_storage_status {
 
     my $info = PVE::Storage::storage_info($cfg);
 
+    my $statushash = {};
+
     foreach my $storeid (keys %$info) {
-	my $d = $info->{$storeid};
-	next if !$d->{active};
+    	my $d = $info->{$storeid};
+    	next if !$d->{active};
 
-	# everything not free is considered to be used
-	my $realused = $d->{total} - $d->{avail};
+    	# everything not free is considered to be used
+    	my $realused = $d->{total} - $d->{avail};
 
-	my $data = "$ctime:$d->{total}:$realused";
+    	my $data = "$ctime:$d->{total}:$realused";
 
-	my $key = "pve2-storage/${nodename}/$storeid";
-	PVE::Cluster::broadcast_rrd($key, $data);
+    	my $key = "pve2-storage/${nodename}/$storeid";
+    	PVE::Cluster::broadcast_rrd($key, $data);
+
+        $statushash->{$storeid} = $d;
+    }
 
     foreach my $id (keys %{$status_cfg->{ids}}) {
         my $plugin_config = $status_cfg->{ids}->{$id};
         next if $plugin_config->{disable};
         my $plugin = PVE::Status::Plugin->lookup($plugin_config->{type});
-        $plugin->update_storage_status($plugin_config, $nodename, $storeid, $d, $ctime);
+        $plugin->update_storage_status($plugin_config, $nodename, $statushash, $ctime);
     }
-    }
+
 }
 
 sub update_status {

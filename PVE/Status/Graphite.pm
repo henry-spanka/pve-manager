@@ -53,20 +53,20 @@ sub update_node_status {
 }
 
 sub update_qemu_status {
-    my ($class, $plugin_config, $vmid, $data, $ctime) = @_;
-    write_graphite_hash($plugin_config, $data, $ctime, "qemu.$vmid");
+    my ($class, $plugin_config, $data, $ctime) = @_;
+    write_graphite_hash($plugin_config, $data, $ctime, "qemu");
 }
 
 sub update_openvz_status {
-    my ($class, $plugin_config, $vmid, $data, $ctime) = @_;
+    my ($class, $plugin_config, $data, $ctime) = @_;
 
-    write_graphite_hash($plugin_config, $data, $ctime, "openvz.$vmid");
+    write_graphite_hash($plugin_config, $data, $ctime, "openvz");
 }
 
 sub update_storage_status {
-    my ($class, $plugin_config, $nodename, $storeid, $data, $ctime) = @_;
+    my ($class, $plugin_config, $nodename, $data, $ctime) = @_;
 
-    write_graphite_hash($plugin_config, $data, $ctime, "storages.$nodename.$storeid");
+    write_graphite_hash($plugin_config, $data, $ctime, "storages.$nodename");
 }
 
 sub write_graphite_hash {
