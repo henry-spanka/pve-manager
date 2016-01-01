@@ -204,7 +204,7 @@ sub read_container_network_usage {
     };
 
     # fixme: can we get that info directly (with vzctl exec)?
-    my $cmd = ['/usr/bin/timeout', '1', '/usr/sbin/vzctl', 'exec', $vmid, '/bin/cat', '/proc/net/dev'];
+    my $cmd = ['/usr/bin/timeout', '3', '/usr/sbin/vzctl', 'exec', $vmid, '/bin/cat', '/proc/net/dev'];
     eval { run_command($cmd, outfunc => $netparser); };
     my $err = $@;
     syslog('err', $err) if $err;
