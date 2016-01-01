@@ -29,13 +29,9 @@ $rpcenv->set_language($ENV{LANG});
 $rpcenv->set_user('root@pam');
 
 my $OBSOLETE_BEANCOUNTERS = [
-    'KMEMSIZE',
-    'LOCKEDPAGES',
     'PRIVVMPAGES',
     'SHMPAGES',
     'NUMPROC',
-    'VMGUARPAGES',
-    'OOMGUARPAGE',
     'NUMTCPSOCK',
     'NUMFLOCK',
     'NUMPTY',
@@ -45,14 +41,12 @@ my $OBSOLETE_BEANCOUNTERS = [
     'OTHERSOCKBUF',
     'DGRAMRCVBU',
     'NUMOTHERSOCK',
-    'DCACHESIZE',
     'NUMFILE',
     'AVNUMPROC',
     'NUMIPTENT',
     'ORIGIN_SAMPLE',
     'DISKINODES',
     'DGRAMRCVBUF',
-    'OOMGUARPAGES',
     'QUOTATIME'
 ];
 
