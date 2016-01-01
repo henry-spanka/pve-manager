@@ -1,3 +1,33 @@
+pve-manager (4.1-1) unstable; urgency=low
+
+  * do not remove some beancounters in vzconvert script
+
+  * re-add some UBCs that improve stability of the system
+
+  * increase readd_container_network_usage timeout to 3 seconds
+
+  * merge service pvemonitord into pvestatd
+
+  * change update time of pvestatd to 30 seconds
+
+  * send status metrics in batches over tcp socket
+
+  * send status metrics via tcp
+
+  * remove InfluxDB status plugin
+
+  * Fix red cluster and graphs not writing
+
+  * add iolimit and iopslimit to GUI
+
+  * fix graphite value regex
+
+  * only export numeric values(metrics)
+
+  * remove progress of rsync process and show time needed to sync
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Fri, 01 Jan 2016 19:54:26 +0100
+
 pve-manager (4.0-7) unstable; urgency=low
 
   * fix openvz reinstallation
