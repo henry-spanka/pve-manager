@@ -28,6 +28,12 @@ use Data::Dumper; # fixme: remove
 my $pve_base_ovz_config = <<__EOD;
 ONBOOT="no"
 
+OOMGUARPAGES="0:unlimited"
+VMGUARPAGES="0:unlimited"
+KMEMSIZE="116M:128M"
+DCACHESIZE="58M:64M"
+LOCKEDPAGES="128M"
+
 VM_OVERCOMMIT="1.5"
 VE_LAYOUT="ploop"
 

@@ -1085,19 +1085,19 @@ sub update_ovz_config {
 
     # memory related parameter 
 
-    #&$push_bl_changes('vmguarpages', 0, $res_unlimited);
-    #&$push_bl_changes('oomguarpages', 0, $res_unlimited);
+    &$push_bl_changes('vmguarpages', 0, $res_unlimited);
+    &$push_bl_changes('oomguarpages', 0, $res_unlimited);
     #&$push_bl_changes('privvmpages', $res_unlimited, $res_unlimited);
 
     # lock half of $mem
-    #my $lockedpages = int($mem*1024/8);
-    #&$push_bl_changes('lockedpages', $lockedpages, undef);
+    my $lockedpages = int($mem*1024/8);
+    &$push_bl_changes('lockedpages', $lockedpages, undef);
 
-    #my $kmemsize = int($mem/2);
-    #&$push_bl_changes('kmemsize', int($kmemsize/1.1)*1024*1024, $kmemsize*1024*1024);
+    my $kmemsize = int($mem/2);
+    &$push_bl_changes('kmemsize', int($kmemsize/1.1)*1024*1024, $kmemsize*1024*1024);
 
-    #my $dcachesize = int($mem/4);
-    #&$push_bl_changes('dcachesize', int($dcachesize/1.1)*1024*1024, $dcachesize*1024*1024);
+    my $dcachesize = int($mem/4);
+    &$push_bl_changes('dcachesize', int($dcachesize/1.1)*1024*1024, $dcachesize*1024*1024);
 
     my $physpages = int($mem*1024/4);
     &$push_bl_changes('physpages', 0, $physpages);
