@@ -370,7 +370,7 @@ my $next_update = 0;
 # do not update directly after startup, because install scripts
 # have a problem with that
 my $cycle = 0; 
-my $updatetime = 10;
+my $updatetime = 30;
 
 my $initial_memory_usage;
 
