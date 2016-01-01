@@ -79,12 +79,12 @@ sub write_graphite_hash {
     my $carbon_socket = IO::Socket::IP->new(
         PeerAddr    => $host,
         PeerPort    => $port,
-        Proto       => 'udp',
+        Proto       => 'tcp',
     );
 
     write_graphite($carbon_socket, $d, $ctime, $path.".$object");
 
-    $carbon_socket->close() if $carbon_socket;
+    $carbon_socket->shutdown(2) if $carbon_socket;
 
 }
 
@@ -103,7 +103,7 @@ sub write_graphite {
                 write_graphite($carbon_socket, $value, $ctime, $path);
             }else {
                 if ($value =~ /^[0-9]+\.?[0-9]*$/) {
-                    $carbon_socket->send( "$path $value $ctime" );
+                    print $carbon_socket "${path} ${value} ${ctime}\n";
                 }
             }
         }
