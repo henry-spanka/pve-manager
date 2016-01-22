@@ -1,3 +1,9 @@
+pve-manager (4.1-2) unstable; urgency=low
+
+  * do not calculate time because the backup fails otherwise
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sat, 02 Jan 2016 23:53:33 +0100
+
 pve-manager (4.1-1) unstable; urgency=low
 
   * do not remove some beancounters in vzconvert script
