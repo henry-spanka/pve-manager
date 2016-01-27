@@ -1,6 +1,6 @@
 include ../defines.mk
 
-SUBDIRS=API2 VZDump Status
+SUBDIRS=API2 VZDump Status RaidCheck
 
 PERLSOURCE = 			\
 	API2.pm			\
@@ -18,7 +18,8 @@ PERLSOURCE = 			\
 	AutoBalloon.pm		\
 	CephTools.pm		\
 	VZDump.pm			\
-	Mounts.pm
+	Mounts.pm			\
+	RaidCheck.pm
 
 all: pvecfg.pm ${SUBDIRS}
 

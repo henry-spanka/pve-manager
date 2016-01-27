@@ -22,6 +22,8 @@ use Storable 'dclone';
 
 use PVE::Database;
 
+use PVE::RaidCheck;
+
 use PVE::Status::Plugin;
 use PVE::Status::Graphite;
 
@@ -103,6 +105,10 @@ sub update_node_status {
 
     my $dinfo = df('/', 1);     # output is bytes
 
+    my $raidcheck = PVE::RaidCheck->new();
+
+    $raidcheck->checkRaids();
+
     my $ctime = time();
 
     # everything not free is considered to be used
@@ -136,6 +142,10 @@ sub update_node_status {
         $d->{memory} = $meminfo;
         $d->{blockstat} = $dinfo;
         $d->{nics} = $netdev;
+        $d->{raidcheck} = {
+            summary => $raidcheck->{summary},
+            plugins => $raidcheck->{plugins}
+        };
 
         $d->{database} = $hostdbconf;
 
