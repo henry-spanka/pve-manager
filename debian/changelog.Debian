@@ -1,3 +1,9 @@
+pve-manager (4.2-1) unstable; urgency=low
+
+  * Add Raid check for mdadm and hpacucli
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Wed, 27 Jan 2016 14:45:06 +0100
+
 pve-manager (4.1-2) unstable; urgency=low
 
   * do not calculate time because the backup fails otherwise
