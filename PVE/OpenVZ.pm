@@ -838,6 +838,17 @@ sub parse_integer {
     return undef;
 };
 
+# use this for dns-name/ipv4/ipv6 (or lists of them)
+sub parse_simple_string {
+    my ($key, $text) = @_;
+
+    if ($text =~ m/^([a-zA-Z0-9\-\,\;\:\.\s]*)$/) {
+        return { value => $1 };
+    }
+
+    return undef;
+}
+
 my $ovz_ressources = {
     numproc => \&parse_res_num_ignore,
     numtcpsock => \&parse_res_num_ignore,
@@ -881,9 +892,9 @@ my $ovz_ressources = {
 
     ip_address => 'string',
     netif => 'string',
-    hostname => 'string',
-    nameserver => 'string',
-    searchdomain => 'string',
+    hostname => \&parse_simple_string,
+    nameserver => \&parse_simple_string,
+    searchdomain => \&parse_simple_string,
 
     name => 'string',
     description => 'string',
@@ -991,15 +1002,17 @@ sub create_config_line {
     my $text;
 
     if (defined($data->{value})) {
-	if ($confdesc->{$key} && $confdesc->{$key}->{type} eq 'boolean') {
-	    my $txt = $data->{value} ? 'yes' : 'no';
-	    $text .= uc($key) . "=\"$txt\"\n";
-	} else {
-	    $text .= uc($key) . "=\"$data->{value}\"\n";
-	}
+    	if ($confdesc->{$key} && $confdesc->{$key}->{type} eq 'boolean') {
+    	    my $txt = $data->{value} ? 'yes' : 'no';
+    	    $text .= uc($key) . "=\"$txt\"\n";
+    	} else {
+            my $value = $data->{value};
+            die "detected invalid newline inside property '$key'\n" if $value =~ m/\n/;
+            $text .= uc($key) . "=\"$value\"\n";
+    	}
     } elsif (defined($data->{bar})) {
-	my $tmp = format_res_bar_lim($key, $data);
-	$text .=  uc($key) . "=\"$tmp\"\n";     
+    	my $tmp = format_res_bar_lim($key, $data);
+    	$text .=  uc($key) . "=\"$tmp\"\n";     
     }
 }
 
