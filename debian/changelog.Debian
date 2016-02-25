@@ -1,3 +1,9 @@
+pve-manager (4.2-2) unstable; urgency=low
+
+  * Fix Vulnerability: Insecure hostname checking (remote root exploit)
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Thu, 25 Feb 2016 13:59:48 +0100
+
 pve-manager (4.2-1) unstable; urgency=low
 
   * Add Raid check for mdadm and hpacucli
