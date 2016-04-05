@@ -1642,40 +1642,54 @@ sub restoreContainerBackup {
             run_command($cmd);
         }
 
-        my $backup_cfg = "${private}/vzdump/vps.conf";
-        if (-f $backup_cfg) {
-            print "restore configuration to '$conffile'\n";
+        my $backup_cfg;
+        my $isploop;
 
-            my $conf = PVE::Tools::file_get_contents($backup_cfg);
+        if (-f "${private}/vzdump/vps.conf") {
+            $backup_cfg = "${private}/vzdump/vps.conf"; # Config path for ploop
+            $isploop = 1;
+        } elsif (-f "${private}/etc/vzdump/vps.conf") {
+            $backup_cfg = "${private}/etc/vzdump/vps.conf"; # Config path for simfs
+            $isploop = 0;
+        } else {
+            die "VPS Config file does not exists";
+        }
 
-            $conf =~ s/VE_ROOT=.*/VE_ROOT=\"$root\"/;
-            $conf =~ s/VE_PRIVATE=.*/VE_PRIVATE=\"$private\"/;
-            $conf =~ s/host_ifname=veth[0-9]+\./host_ifname=veth${vmid}\./g;
+        print "restore configuration to '$conffile'\n";
 
-            PVE::Tools::file_set_contents($conffile, $conf);
-            
-            foreach my $s (PVE::OpenVZ::SCRIPT_EXT) {
-                my $tfn = "${cfgdir}/${vmid}.$s";
-                my $sfn = "${private}/vzdump/vps.${s}";
-                if (-f $sfn) {
-                    my $sc = PVE::Tools::file_get_contents($sfn);
-                    PVE::Tools::file_set_contents($tfn, $sc);
+        my $conf = PVE::Tools::file_get_contents($backup_cfg);
+
+        $conf =~ s/VE_ROOT=.*/VE_ROOT=\"$root\"/;
+        $conf =~ s/VE_PRIVATE=.*/VE_PRIVATE=\"$private\"/;
+        $conf =~ s/host_ifname=veth[0-9]+\./host_ifname=veth${vmid}\./g;
+
+        PVE::Tools::file_set_contents($conffile, $conf);
+        
+        foreach my $s (PVE::OpenVZ::SCRIPT_EXT) {
+            my $tfn = "${cfgdir}/${vmid}.$s";
+            my $sfn = "${private}/vzdump/vps.${s}";
+            if (-f $sfn) {
+                my $sc = PVE::Tools::file_get_contents($sfn);
+                PVE::Tools::file_set_contents($tfn, $sc);
+            }
+        }
+
+        if ($isploop) {
+            print "Detected Ploop container - Trying to detect valid snapshot that needs to be restored\n";
+            my $snapshotcfg = "${private}/vzdump/snapshot.uuid";
+
+            if (-f $snapshotcfg) {
+                my $snapshotuuid = PVE::Tools::file_get_contents($snapshotcfg);
+
+                if ($snapshotuuid) {
+                    my $validuuid = getValidUUID($snapshotuuid);
+                    switchSnapshot($vmid, $validuuid, 1);
+                    deleteSnapshot($vmid, $validuuid, 1);
                 }
             }
         } else {
-            die "VPS Config file does not exists" if !-f $conffile;
-        }
-
-        my $snapshotcfg = "${private}/vzdump/snapshot.uuid";
-
-        if (-f $snapshotcfg) {
-            my $snapshotuuid = PVE::Tools::file_get_contents($snapshotcfg);
-
-            if ($snapshotuuid) {
-                my $validuuid = getValidUUID($snapshotuuid);
-                switchSnapshot($vmid, $validuuid, 1);
-                deleteSnapshot($vmid, $validuuid, 1);
-            }
+            print "Detected obsolete simfs container - Converting to ploop now\n";
+            run_command(['vzconvert', '--skiplock=1', $vmid]);
         }
 
         rmtree "${private}/vzdump";
