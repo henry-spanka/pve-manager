@@ -23,6 +23,7 @@ use Storable 'dclone';
 use PVE::Database;
 
 use PVE::RaidCheck;
+use PVE::TemperatureCheck;
 
 use PVE::Status::Plugin;
 use PVE::Status::Graphite;
@@ -87,7 +88,7 @@ sub update_node_status {
 
     my $cpuinfo = PVE::ProcFSTools::read_cpuinfo();
 
-    my $maxcpu = $cpuinfo->{cpus}; 
+    my $maxcpu = $cpuinfo->{cpus};
 
     my $subinfo = PVE::INotify::read_file('subscription');
     my $sublevel = $subinfo->{level} || '';
@@ -100,7 +101,7 @@ sub update_node_status {
 	$netin += $netdev->{$dev}->{receive};
 	$netout += $netdev->{$dev}->{transmit};
     }
- 
+
     my $meminfo = PVE::ProcFSTools::read_meminfo();
 
     my $dinfo = df('/', 1);     # output is bytes
@@ -108,6 +109,10 @@ sub update_node_status {
     my $raidcheck = PVE::RaidCheck->new();
 
     $raidcheck->checkRaids();
+
+    my $tempcheck = PVE::TemperatureCheck->new();
+
+    $tempcheck->check();
 
     my $ctime = time();
 
@@ -147,6 +152,10 @@ sub update_node_status {
             plugins => $raidcheck->{plugins}
         };
 
+        $d->{tempcheck} = {
+            plugins => $tempcheck->{plugins}
+        };
+
         $d->{database} = $hostdbconf;
 
         $plugin->update_node_status($plugin_config, $nodename, $d, $ctime);
@@ -174,7 +183,7 @@ sub auto_balloning {
 
     my $maxchange = 100*1024*1024;
     my $res = PVE::AutoBalloon::compute_alg1($vmstatus, $goal, $maxchange);
- 
+
     &$log("host goal: $goal free: $hostfreemem total: $hostmeminfo->{memtotal}\n");
 
     foreach my $vmid (keys %$vmstatus) {
@@ -185,7 +194,7 @@ sub auto_balloning {
 	if ($absdiff > 0) {
 	    &$log("BALLOON $vmid to $res->{$vmid} ($diff)\n");
 	    eval {
-		PVE::QemuServer::vm_mon_cmd($vmid, "balloon", 
+		PVE::QemuServer::vm_mon_cmd($vmid, "balloon",
 					    value => int($res->{$vmid}));
 	    };
 	    warn $@ if $@;
@@ -226,7 +235,7 @@ sub update_qemu_status {
     	PVE::Cluster::broadcast_rrd("pve2.3-vm/$vmid", $data);
 
         my $vmdbconf = PVE::Database::load_vmdb_conf($vmid);
-        
+
         PVE::Database::update_vm_network($d, $vmid, $vmdbconf);
 
         PVE::Database::save_vmdb_conf($vmid, $vmdbconf);
@@ -257,13 +266,13 @@ sub find_vzctl_console_pids {
 	my @args = split(/\0/, $cmdline);
 
 	# serach for vzctl console <vmid>
-	return if scalar(@args) != 3; 
+	return if scalar(@args) != 3;
 	return if $args[1] ne 'console';
 	return if $args[2] !~ m/^\d+$/;
 	return if $args[0] !~ m|^(/usr/sbin/)?vzctl$|;
-	
+
 	my $vmid = $args[2];
-	
+
 	push @{$res->{$vmid}}, $pid;
     });
 
@@ -311,7 +320,7 @@ sub update_openvz_status {
     	PVE::Cluster::broadcast_rrd("pve2.3-vm/$vmid", $data);
 
         my $vmdbconf = PVE::Database::load_vmdb_conf($vmid);
-        
+
         $vmdbconf = PVE::Database::update_vm_network($d, $vmid, $vmdbconf);
         $vmdbconf = PVE::Database::update_vm_disk($d, $vmid, $vmdbconf);
 
@@ -414,7 +423,7 @@ my $next_update = 0;
 
 # do not update directly after startup, because install scripts
 # have a problem with that
-my $cycle = 0; 
+my $cycle = 0;
 my $updatetime = 30;
 
 my $initial_memory_usage;
@@ -462,7 +471,7 @@ sub run {
 	}
 
 	my $wcount = 0;
-	while ((time() < $next_update) && 
+	while ((time() < $next_update) &&
 	       ($wcount < $updatetime) && # protect against time wrap
 	       !$restart_request) { $wcount++; sleep (1); };
 
@@ -491,7 +500,7 @@ exit (0);
 __END__
 
 =head1 NAME
-                                          
+
 pvestatd - PVE Status Daemon
 
 =head1 SYNOPSIS
@@ -504,8 +513,3 @@ This daemom queries the status of VMs, storages and containers at
 regular intervals. The result is sent to all nodes in the cluster.
 
 =include pve_copyright
-
-
-
-
-

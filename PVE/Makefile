@@ -1,6 +1,6 @@
 include ../defines.mk
 
-SUBDIRS=API2 VZDump Status RaidCheck
+SUBDIRS=API2 VZDump Status RaidCheck TemperatureCheck
 
 PERLSOURCE = 			\
 	API2.pm			\
@@ -19,7 +19,8 @@ PERLSOURCE = 			\
 	CephTools.pm		\
 	VZDump.pm			\
 	Mounts.pm			\
-	RaidCheck.pm
+	RaidCheck.pm		\
+	TemperatureCheck.pm
 
 all: pvecfg.pm ${SUBDIRS}
 
