@@ -19,10 +19,12 @@ sub check {
 
     $self->readTemperatures();
     $self->readPowerMeters();
+    $self->readFans();
 
     return {
         temperatures => $self->{temperatures},
-        powermeters => $self->{powermeters}
+        powermeters => $self->{powermeters},
+        fans => $self->{fans}
     };
 }
 
@@ -75,6 +77,29 @@ sub readPowerMeters {
 
     PVE::Tools::run_command(
         [$binary, '-s', 'SHOW POWERMETER'],
+        outfunc => $parserfunction
+    );
+}
+
+sub readFans {
+    my $self = shift;
+
+    my $currentmeter;
+
+    my $parserfunction = sub {
+        my $line = shift;
+
+        if ($line =~ /^#(\d+)\s+([A-Z_#\/]+)\s+Yes\s+[A-Z]+\s+(\d+)%\s+/) {
+            my ($id, $name, $value) = ($1, $2, $3);
+            $name =~ tr/#/_/;
+            $name =~ tr/\//_/;
+            $self->{fans}->{"${id}_${name}"} = $value;
+        }
+
+    };
+
+    PVE::Tools::run_command(
+        [$binary, '-s', 'SHOW FAN'],
         outfunc => $parserfunction
     );
 }
