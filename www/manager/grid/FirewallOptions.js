@@ -47,12 +47,12 @@ Ext.define('PVE.FirewallOptions', {
 	    };
 	};
 
-	var add_integer_row = function(name, text, labelWidth, minValue) {
+	var add_integer_row = function(name, text, labelWidth, minValue, maxValue) {
 	    rows[name] = {
 		header: text,
 		required: true,
 		renderer: function(value) {
-		    return value || PVE.Utils.defaultText;
+		    return value || (name == 'pktslimit' ? 'No limit' : PVE.Utils.defaultText);
 		},
 		editor: {
 		    xtype: 'pveWindowEdit',
@@ -62,9 +62,10 @@ Ext.define('PVE.FirewallOptions', {
 			xtype: 'numberfield',
 			name: name,
 			minValue: minValue,
+            maxValue: maxValue,
 			decimalPrecision: 0,
 			fieldLabel: text,
-			emptyText: gettext('Default'),
+			emptyText: (name == 'pktslimit') ? 'No limit' : gettext('Default'),
 			getSubmitData: function() {
 			    var me = this;
 			    var val = me.getSubmitValue();
@@ -108,7 +109,7 @@ Ext.define('PVE.FirewallOptions', {
 	    add_boolean_row('nosmurfs', gettext('SMURFS filter'), 1);
 	    add_boolean_row('tcpflags', gettext('TCP flags filter'), 0);
 	    add_integer_row('nf_conntrack_max', 'nf_conntrack_max', 120, 32768);
-	    add_integer_row('nf_conntrack_tcp_timeout_established', 
+	    add_integer_row('nf_conntrack_tcp_timeout_established',
 			    'nf_conntrack_tcp_timeout_established', 250, 7875);
 	    add_log_row('log_level_in');
 	    add_log_row('log_level_out');
@@ -118,12 +119,13 @@ Ext.define('PVE.FirewallOptions', {
 	    add_boolean_row('enable', gettext('Enable Firewall'), 0);
 	    add_boolean_row('dhcp', gettext('Enable DHCP'), 0);
 	    add_boolean_row('macfilter', gettext('MAC filter'), 1);
+        add_integer_row('pktslimit', 'Max Packets per second', 120, 0, 10000);
 	    add_log_row('log_level_in');
 	    add_log_row('log_level_out');
 	} else if (me.fwtype === 'dc') {
 	    add_boolean_row('enable', gettext('Enable Firewall'), 0);
-	} 
- 
+	}
+
 	if (me.fwtype === 'dc' || me.fwtype === 'vm') {
 	    rows.policy_in = {
 		header: gettext('Input Policy'),
