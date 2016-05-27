@@ -220,7 +220,7 @@ sub read_container_ioacct_stat {
 
     my $filename = "/proc/bc/$vmid/ioacct";
     if (my $fh = IO::File->new ($filename, "r")) {
-       
+
     	while (defined (my $line = <$fh>)) {
     	    if ($line =~ m/^\s+read\s+(\d+)$/) {
     		  $read += $1;
@@ -283,7 +283,7 @@ sub vmstatus {
 
     	    $d->{mem} = 0;
     	    $d->{swap} = 0;
-    	    
+
     	    ($d->{maxmem}, $d->{maxswap}) = ovz_config_extract_mem_swap($conf);
 
     	    $d->{nproc} = 0;
@@ -393,7 +393,7 @@ sub vmstatus {
     	my $d = $list->{$vmid};
     	next if !$d || !$d->{status} || $d->{status} ne 'running';
     	($d->{netin}, $d->{netout}, $d->{pktsin}, $d->{pktsout}) = read_container_network_usage($vmid);
-    	($d->{diskread}, $d->{diskwrite}) = read_container_ioacct_stat($vmid); 
+    	($d->{diskread}, $d->{diskwrite}) = read_container_ioacct_stat($vmid);
     }
 
     return $list;
@@ -464,7 +464,7 @@ my $confdesc = {
     hostname => {
 	optional => 1,
 	description => "Set a host name for the container.",
-	type => 'string',
+	type => 'string', format => 'pve-openvz-hostname',
 	maxLength => 255,
     },
     description => {
@@ -474,12 +474,12 @@ my $confdesc = {
     },
     searchdomain => {
 	optional => 1,
-	type => 'string',
+	type => 'string', format => 'pve-openvz-hostname',
 	description => "Sets DNS search domains for a container. Create will automatically use the setting from the host if you neither set searchdomain or nameserver.",
     },
     nameserver => {
 	optional => 1,
-	type => 'string',
+	type => 'string', format => 'pve-openvz-nameserver',
 	description => "Sets DNS server IP address for a container. Create will automatically use the setting from the host if you neither set searchdomain or nameserver.",
     },
     ip_address => {
@@ -551,7 +551,7 @@ sub read_global_vz_config {
 	lockdir => '/var/lib/vz/lock',
 	disk_quota => 1,
     };
-    
+
     my $filename = "/etc/vz/vz.conf";
 
     return $res if ! -f $filename;
@@ -587,7 +587,7 @@ sub read_global_vz_config {
 	$dir =~ s/^\"(.*)\"/$1/;
 	$res->{lockdir} = $dir;
     }
-    if ($data =~ m/^\s*DISK_QUOTA=(no|false|off|0)$/m) { 
+    if ($data =~ m/^\s*DISK_QUOTA=(no|false|off|0)$/m) {
 	$res->{disk_quota} = 0;
     }
 
@@ -625,7 +625,7 @@ sub parse_netif {
 		    $d->{$1} = parse_boolean('mac_filter', $2);
 		} else {
 		    $d->{$1} = $2;
-		}		
+		}
 	    }
 	}
 	if ($d->{ifname}) {
@@ -673,6 +673,28 @@ sub verify_netif {
     return undef if $noerr;
 
     die "unable to parse --netif value";
+}
+
+PVE::JSONSchema::register_format('pve-openvz-hostname', \&verify_hostname);
+sub verify_hostname {
+    my ($value, $noerr) = @_;
+
+    return $value if $value =~ /^[a-zA-Z0-9\-\.]+$/;
+
+    return undef if $noerr;
+
+    die "unable to parse --hostname value";
+}
+
+PVE::JSONSchema::register_format('pve-openvz-nameserver', \&verify_nameserver);
+sub verify_nameserver {
+    my ($value, $noerr) = @_;
+
+    return $value if $value =~ /^($IPV4RE|$IPV6RE)\s{0,1}($IPV4RE|$IPV6RE){0,1}$/;
+
+    return undef if $noerr;
+
+    die "unable to parse --nameserver value";
 }
 
 sub parse_res_num_ignore {
@@ -733,7 +755,7 @@ sub parse_res_bytes_bytes {
 
     my @a = split(/:/, $text);
     $a[1] = $a[0] if !defined($a[1]);
-    
+
     my $bar = parse_res_bar_limit($a[0], 1);
     my $lim = parse_res_bar_limit($a[1], 1);
 
@@ -749,7 +771,7 @@ sub parse_res_block_block {
 
     my @a = split(/:/, $text);
     $a[1] = $a[0] if !defined($a[1]);
-    
+
     my $bar = parse_res_bar_limit($a[0], 1024);
     my $lim = parse_res_bar_limit($a[1], 1024);
 
@@ -765,7 +787,7 @@ sub parse_res_pages_pages {
 
     my @a = split(/:/, $text);
     $a[1] = $a[0] if !defined($a[1]);
-    
+
     my $bar = parse_res_bar_limit($a[0], 4096);
     my $lim = parse_res_bar_limit($a[1], 4096);
 
@@ -780,9 +802,9 @@ sub parse_res_pages_unlimited {
     my ($key, $text) = @_;
 
     my @a = split(/:/, $text);
-    
+
     my $bar = parse_res_bar_limit($a[0], 4096);
- 
+
     if (defined($bar)) {
 	return { bar => $bar, lim => $res_unlimited };
     }
@@ -794,9 +816,9 @@ sub parse_res_pages_ignore {
     my ($key, $text) = @_;
 
     my @a = split(/:/, $text);
-    
+
     my $bar = parse_res_bar_limit($a[0], 4096);
- 
+
     if (defined($bar)) {
 	return { bar => $bar };
     }
@@ -809,9 +831,9 @@ sub parse_res_ignore_pages {
 
     my @a = split(/:/, $text);
     $a[1] = $a[0] if !defined($a[1]);
-    
+
     my $lim = parse_res_bar_limit($a[1] , 4096);
- 
+
     if (defined($lim)) {
 	return { bar => 0, lim => $lim };
     }
@@ -853,7 +875,7 @@ my $ovz_ressources = {
     numproc => \&parse_res_num_ignore,
     numtcpsock => \&parse_res_num_ignore,
     numothersock => \&parse_res_num_ignore,
-    numfile => \&parse_res_num_ignore,    
+    numfile => \&parse_res_num_ignore,
     numflock => \&parse_res_num_num,
     numpty => \&parse_res_num_ignore,
     numsiginfo => \&parse_res_num_ignore,
@@ -990,9 +1012,9 @@ sub format_res_bar_lim {
     my ($key, $data) = @_;
 
     if (defined($data->{lim}) && ($data->{lim} ne $data->{bar})) {
-	return format_res_value($key, $data->{bar}) . ":" . format_res_value($key, $data->{lim});     
+	return format_res_value($key, $data->{bar}) . ":" . format_res_value($key, $data->{lim});
     } else {
-	return format_res_value($key, $data->{bar}); 
+	return format_res_value($key, $data->{bar});
     }
 }
 
@@ -1012,7 +1034,7 @@ sub create_config_line {
     	}
     } elsif (defined($data->{bar})) {
     	my $tmp = format_res_bar_lim($key, $data);
-    	$text .=  uc($key) . "=\"$tmp\"\n";     
+    	$text .=  uc($key) . "=\"$tmp\"\n";
     }
 }
 
@@ -1026,8 +1048,8 @@ sub ovz_config_extract_mem_swap {
     my $maxpages = ($res_unlimited / 4096);
 
     if ($veconf->{swappages}) {
-	if ($veconf->{physpages} && $veconf->{physpages}->{lim} && 
-	    ($veconf->{physpages}->{lim} < $maxpages)) { 
+	if ($veconf->{physpages} && $veconf->{physpages}->{lim} &&
+	    ($veconf->{physpages}->{lim} < $maxpages)) {
 	    $mem = int(($veconf->{physpages}->{lim} * 4096 + $unit - 1) / $unit);
 	}
 	if ($veconf->{swappages}->{lim} && ($veconf->{swappages}->{lim} < $maxpages)) {
@@ -1047,15 +1069,15 @@ sub update_ovz_config {
     my ($vmid, $veconf, $param) = @_;
 
     my $changes = [];
-	
+
     # test if barrier or limit changed
     my $push_bl_changes = sub {
 	my ($name, $bar, $lim) = @_;
-	my $old = format_res_bar_lim($name, $veconf->{$name}) 
+	my $old = format_res_bar_lim($name, $veconf->{$name})
 	    if $veconf->{$name} && defined($veconf->{$name}->{bar});
 	my $new = format_res_bar_lim($name, { bar => $bar, lim => $lim });
 	if (!$old || ($old ne $new)) {
-	    $veconf->{$name}->{bar} = $bar; 
+	    $veconf->{$name}->{bar} = $bar;
 	    $veconf->{$name}->{lim} = $lim;
 	    push @$changes, "--$name", $new;
 	}
@@ -1096,7 +1118,7 @@ sub update_ovz_config {
 	$cpus = $param->{cpus};
     }
 
-    # memory related parameter 
+    # memory related parameter
 
     &$push_bl_changes('vmguarpages', 0, $res_unlimited);
     &$push_bl_changes('oomguarpages', 0, $res_unlimited);
@@ -1157,7 +1179,7 @@ sub update_ovz_config {
 	$veconf->{'cpus'}->{value} = $cpus;
 	push @$changes, '--cpus', "$cpus";
     }
-	
+
 	if ($veconf->{'cpulimit'}->{value} != $param->{cpulimit} && defined($param->{cpulimit})) {
 		$veconf->{'cpulimit'}->{value} = $param->{cpulimit};
 		push @$changes, '--cpulimit', "$param->{cpulimit}";
@@ -1190,9 +1212,9 @@ sub update_ovz_config {
     };
 
     &$cond_set_boolean('onboot');
-    
+
     &$cond_set_value('hostname');
- 
+
     &$cond_set_value('searchdomain');
 
     if ($param->{'description'}) {
@@ -1222,7 +1244,7 @@ sub update_ovz_config {
 	}
 	$veconf->{'ip_address'}->{value} = join(' ', keys %$iphash);
     }
-	
+
     if (defined($param->{devices})) {
 		$veconf->{'devices'}->{value} = $param->{devices};
 		push @$changes, '--devices', "$param->{devices}";
@@ -1276,7 +1298,7 @@ sub update_ovz_config {
 	    $ifadd .= $newif->{$ifname}->{host_ifname} ? ",$newif->{$ifname}->{host_ifname}" : ',';
 	    $ifadd .= $newif->{$ifname}->{host_mac} ? ",$newif->{$ifname}->{host_mac}" : ',';
 	    $ifadd .= $newif->{$ifname}->{bridge} ? ",$newif->{$ifname}->{bridge}" : '';
-	    
+
 	    # not possible with current vzctl
 	    #$ifadd .= $newif->{$ifname}->{mac_filter} ? ",$newif->{$ifname}->{mac_filter}" : '';
 
@@ -1287,7 +1309,7 @@ sub update_ovz_config {
 	$veconf->{netif}->{value} = $newvalue;
     }
 
-    if (defined($param->{'nameserver'})) { 
+    if (defined($param->{'nameserver'})) {
 	# remove duplicates
 	my $nshash = {};
 	my $newvalue = '';
@@ -1348,8 +1370,8 @@ sub create_lock_manager {
 
     return LockFile::Simple->make(-format => '%f',
 				  -autoclean => 1,
-				  -max => defined($max) ? $max : 60, 
-				  -delay => 1, 
+				  -max => defined($max) ? $max : 60,
+				  -delay => 1,
 				  -stale => 1,
 				  -nfs => 0);
 }
@@ -1607,10 +1629,10 @@ sub restoreContainerBackup {
 
     die "unable to create CT ${vmid} - container already exists\n"
     if !$force && -f $conffile;
- 
+
     die "unable to create CT ${vmid} - directory '${private}' already exists\n"
     if !$force && -d $private;
-   
+
     die "unable to create CT ${vmid} - directory '${root}' already exists\n"
     if !$force && -d $root;
 
@@ -1622,7 +1644,7 @@ sub restoreContainerBackup {
 
             my $oldprivate = PVE::OpenVZ::get_privatedir($conf, $vmid);
             rmtree $oldprivate if -d $oldprivate;
-           
+
             my $oldroot = $conf->{ve_root} ? $conf->{ve_root}->{value} : $root;
             rmtree $oldroot if -d $oldroot;
         }
@@ -1631,7 +1653,7 @@ sub restoreContainerBackup {
 
         mkpath $private || die "unable to create private dir '$private'";
         mkpath $root || die "unable to create root dir '$root'";
-        
+
         my $cmd = ['tar', 'xpvf', $archive, '--totals', '--sparse', '-C', $private];
 
         if ($archive eq '-') {
@@ -1664,7 +1686,7 @@ sub restoreContainerBackup {
         $conf =~ s/host_ifname=veth[0-9]+\./host_ifname=veth${vmid}\./g;
 
         PVE::Tools::file_set_contents($conffile, $conf);
-        
+
         foreach my $s (PVE::OpenVZ::SCRIPT_EXT) {
             my $tfn = "${cfgdir}/${vmid}.$s";
             my $sfn = "${private}/vzdump/vps.${s}";
@@ -1716,7 +1738,7 @@ sub getValidUUID {
 
     my $string;
 
-    $uuid =~ /\A(.*)\z/s or die "Invalid UUID"; $string = $1; 
+    $uuid =~ /\A(.*)\z/s or die "Invalid UUID"; $string = $1;
 
     $string =~ /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/ or die "Invalid UUID";
 
@@ -1751,7 +1773,7 @@ sub getPloopInfo {
     $top_delta =~ s/^${private}\///;
 
     $ploopdevice =~ /\A(.*)\z/s or die "Invalid ploop device"; $ploopdevice = $1;
-    $top_delta =~ /\A(.*)\z/s or die "Invalid top delta"; $top_delta = $1; 
+    $top_delta =~ /\A(.*)\z/s or die "Invalid top delta"; $top_delta = $1;
 
     return { ploop_device => $ploopdevice, top_delta => $top_delta };
 }
