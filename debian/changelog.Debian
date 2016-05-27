@@ -1,3 +1,9 @@
+pve-manager (4.2-7) unstable; urgency=low
+
+  * Correctly validate hostname, nameservers and searchdomain
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Fri, 27 May 2016 15:50:24 +0200
+
 pve-manager (4.2-6) unstable; urgency=low
 
   * add firewall pktslimit option to GUI
