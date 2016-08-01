@@ -1265,8 +1265,8 @@ sub update_ovz_config {
     # IO settings
 
     if(defined($param->{iolimit})) {
-    	$veconf->{'iolimit'}->{value} = $param->{iolimit};
-    	push @$changes, '--iolimit', "$param->{iolimit}M"; # IO Limit parameter is in MegaBytes
+    	$veconf->{'iolimit'}->{value} = $param->{iolimit} * (1024 * 1024);
+    	push @$changes, '--iolimit', "$param->{iolimit}M";
     }
     if(defined($param->{iopslimit})) {
     	$veconf->{'iopslimit'}->{value} = $param->{iopslimit};
