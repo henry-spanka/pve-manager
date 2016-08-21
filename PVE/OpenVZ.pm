@@ -1470,7 +1470,7 @@ sub createSnapshot {
 
     $uuid = generateUUID() if !$uuid;
 
-    my $cmd = ['vzctl', 'snapshot', $vmid, '--id', $uuid];
+    my $cmd = ['vzctl', 'snapshot', $vmid, '--id', $uuid, '--skip-config'];
 
     push $cmd, '--name', $name if $name;
     push $cmd, '--skip-suspend' if $skipsuspend;
