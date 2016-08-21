@@ -1,3 +1,9 @@
+pve-manager (4.2-9) unstable; urgency=low
+
+  * skip config during openvz snapshot to ensure up-/downgrades are not lost after restore
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sun, 21 Aug 2016 19:56:28 +0200
+
 pve-manager (4.2-8) unstable; urgency=low
 
   * Correctly convert iolimit to bytes
